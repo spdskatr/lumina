@@ -1,6 +1,13 @@
 {-# LANGUAGE LambdaCase #-}
 
-module Lexer where
+module Lexer (
+    Token,
+    StateMachine,
+    UnifiedStateMachine,
+    testStateMachine,
+    getAllTokens,
+    getAllTokensLumina
+) where
 
 {-
  - Cursed manual Lexer implementation. I match a list of "DFAs" to the current
@@ -16,8 +23,6 @@ import Control.Monad (forM)
 import Control.Monad.Trans.State.Strict (State, state, runState, evalState)
 import Data.Char (isAlpha, isNumber, ord)
 import Data.Maybe (mapMaybe)
-
-test = "TODO REMOVE test"
 
 -- Keep 0 and 1 tokens separate because they can take on other types
 data Token
@@ -55,10 +60,6 @@ data Token
     deriving (Eq, Show)
 
 data MatchState = Wait | Accept Token | Reject deriving (Eq, Show)
-
-nextElem :: [a] -> ([a], Maybe a)
-nextElem []     = ([], Nothing)
-nextElem (x:xs) = (xs, Just x)
 
 -- Matchers
 --
@@ -133,7 +134,7 @@ getNextTokenImpl rules = \case
     (nx:rest) -> getNextTokenImpl nextRules rest ++ acceptResults
         where
             results = filter (\x -> fst x /= Reject) $ map (stepStateMachineUnif nx) rules
-            acceptResults = mapMaybe (\x -> case fst x of { Accept x -> Just (x, rest); _ -> Nothing }) results
+            acceptResults = mapMaybe (\x -> case fst x of { Accept t -> Just (t, rest); _ -> Nothing }) results
             nextRules = map snd results
 
 getNextToken :: [UnifiedStateMachine] -> String -> Maybe (Token, String)

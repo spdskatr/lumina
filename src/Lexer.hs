@@ -69,6 +69,9 @@ data MatchState = Wait | Accept Token | Reject deriving (Eq, Show)
 -- State machine with internal state type a
 data StateMachine a = StateMachine a (Char -> State a MatchState)
 
+-- Existential state machine type to implement a common stepping function
+data AnyStateMachine = forall a. USM (StateMachine a)
+
 testStateMachine :: StateMachine a -> String -> [MatchState]
 testStateMachine (StateMachine s cont) inp = evalState stateIter s
     where stateIter = forM inp cont
@@ -114,19 +117,9 @@ stepStateMachine :: Char -> StateMachine a -> (MatchState, StateMachine a)
 stepStateMachine inp (StateMachine s cont) = (output, StateMachine nextState cont)
     where (output, nextState) = runState (cont inp) s
 
--- Union of two state machine types to implement a common stepping function
--- Uses existential types
-data AnyStateMachine = forall a. USM (StateMachine a)
-
 stepStateMachineUnif :: Char -> AnyStateMachine -> (MatchState, AnyStateMachine)
 stepStateMachineUnif inp = \case
     USM x -> let (a, res) = stepStateMachine inp x in (a, USM res)
-{-
-    SMI x -> let (a, res) = stepStateMachine inp x in (a, SMI res)
-    SMS x -> let (a, res) = stepStateMachine inp x in (a, SMS res)
-    SMMS x -> let (a, res) = stepStateMachine inp x in (a, SMMS res)
-    -}
--- Ok we're out of the cursed section
 
 getNextTokenImpl :: [AnyStateMachine] -> String -> [(Token, String)]
 getNextTokenImpl rules = \case

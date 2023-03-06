@@ -1,0 +1,7 @@
+with f (x: int) : int = with x case
+    | 0 -> 0
+    | 1 -> 1
+    | _ -> f (x - 1) + f (x - 2)
+end end
+
+with f (x: int) : int = with x case | 0 -> 0 | 1 -> 1 | _ -> f (x - 1) + f (x - 2) end end

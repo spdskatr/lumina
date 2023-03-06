@@ -1,9 +1,9 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase, ExistentialQuantification #-}
 
 module Lexer (
     Token,
     StateMachine,
-    UnifiedStateMachine,
+    AnyStateMachine,
     testStateMachine,
     getAllTokens,
     getAllTokensLumina
@@ -115,20 +115,20 @@ stepStateMachine inp (StateMachine s cont) = (output, StateMachine nextState con
     where (output, nextState) = runState (cont inp) s
 
 -- Union of two state machine types to implement a common stepping function
--- I decided not to mess with the type system today
-data UnifiedStateMachine
-    = SMI (StateMachine Int)
-    | SMS (StateMachine String)
-    | SMMS (StateMachine (Maybe String))
+-- Uses existential types
+data AnyStateMachine = forall a. USM (StateMachine a)
 
-stepStateMachineUnif :: Char -> UnifiedStateMachine -> (MatchState, UnifiedStateMachine)
+stepStateMachineUnif :: Char -> AnyStateMachine -> (MatchState, AnyStateMachine)
 stepStateMachineUnif inp = \case
+    USM x -> let (a, res) = stepStateMachine inp x in (a, USM res)
+{-
     SMI x -> let (a, res) = stepStateMachine inp x in (a, SMI res)
     SMS x -> let (a, res) = stepStateMachine inp x in (a, SMS res)
     SMMS x -> let (a, res) = stepStateMachine inp x in (a, SMMS res)
+    -}
 -- Ok we're out of the cursed section
 
-getNextTokenImpl :: [UnifiedStateMachine] -> String -> [(Token, String)]
+getNextTokenImpl :: [AnyStateMachine] -> String -> [(Token, String)]
 getNextTokenImpl rules = \case
     []        -> []
     (nx:rest) -> getNextTokenImpl nextRules rest ++ acceptResults
@@ -137,13 +137,13 @@ getNextTokenImpl rules = \case
             acceptResults = mapMaybe (\x -> case fst x of { Accept t -> Just (t, rest); _ -> Nothing }) results
             nextRules = map snd results
 
-getNextToken :: [UnifiedStateMachine] -> String -> Maybe (Token, String)
+getNextToken :: [AnyStateMachine] -> String -> Maybe (Token, String)
 getNextToken rules input = case getNextTokenImpl rules input of
     []    -> Nothing
     (x:_) -> Just x
 
 -- The magic function that gives you all of your Lumina tokens
-getAllTokens :: [UnifiedStateMachine] -> String -> [Token]
+getAllTokens :: [AnyStateMachine] -> String -> [Token]
 getAllTokens rules input = case input of
     [] -> []
     _  -> case getNextToken rules input of
@@ -157,7 +157,7 @@ getAllTokensLumina = getAllTokens tokenDefs
 -- LUMINA TOKEN DEFINITIONS
 -- Highest priority tokens are at the top.
 -- TODO: Add minified versions of the tokens
-tokenDefs :: [UnifiedStateMachine]
+tokenDefs :: [AnyStateMachine]
 tokenDefs = [
     matchString_ Zero "0",
     matchString_ One "1",
@@ -186,9 +186,9 @@ tokenDefs = [
     matchString_ End "end",
     matchString_ While "while",
     matchString_ Case "case",
-    SMMS matchAnyIdent,
-    SMI matchAnyPositiveInt,
-    SMI matchSpace,
-    SMI matchComment]
+    USM matchAnyIdent,
+    USM matchAnyPositiveInt,
+    USM matchSpace,
+    USM matchComment]
     where 
-        matchString_ tok s = SMS (matchString tok s)
+        matchString_ tok s = USM (matchString tok s)

@@ -155,6 +155,7 @@ getAllTokensLumina = getAllTokens tokenDefs
 
 -- LUMINA TOKEN DEFINITIONS
 -- Highest priority tokens are at the top.
+-- TODO: Add minified versions of the tokens
 tokenDefs :: [UnifiedStateMachine]
 tokenDefs = [
     matchString_ Zero "0",
@@ -177,7 +178,7 @@ tokenDefs = [
     matchString_ OrOp "||",
     matchString_ Bar "|",
     matchString_ Arrow "->",
-    matchString_ Not "~", -- TODO: Unify these tokens and then resolve type checking
+    matchString_ Not "~", -- TODO: Unify this token with ! and then resolve type checking
     matchString_ Equal "=",
     matchString_ With "with",
     matchString_ Do "do",

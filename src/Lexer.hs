@@ -1,7 +1,10 @@
-{-# LANGUAGE LambdaCase, ExistentialQuantification #-}
+{-# LANGUAGE LambdaCase, ExistentialQuantification, MultiParamTypeClasses #-}
 
 module Lexer (
-    Token,
+    Token (..),
+    Tag,
+    Taggable (..),
+    TokenTag (..),
     StateMachine,
     AnyStateMachine,
     testStateMachine,
@@ -22,7 +25,13 @@ module Lexer (
 import Control.Monad (forM)
 import Control.Monad.Trans.State.Strict (State, state, runState, evalState)
 import Data.Char (isAlpha, isNumber, ord)
+import Data.Ix (Ix)
 import Data.Maybe (mapMaybe)
+
+class (Bounded t, Enum t, Ord t, Ix t) => Tag t
+
+class (Tag t) => Taggable x t where
+    getTag :: x -> t
 
 -- Keep 0 and 1 tokens separate because they can take on other types
 data Token
@@ -59,6 +68,77 @@ data Token
     | Comment
     deriving (Eq, Show)
 
+-- For the benefit of the parser.
+data TokenTag
+    = ZeroT
+    | OneT
+    | IntLitT
+    | LParenT
+    | RParenT
+    | ColonT
+    | SemicolonT
+    | BangT
+    | AssignT
+    | LessThanT
+    | RefT
+    | IntTypeT
+    | BoolTypeT
+    | UnitTypeT
+    | AddT
+    | SubT
+    | MulT
+    | AndOpT
+    | OrOpT
+    | BarT
+    | ArrowT
+    | NotT
+    | EqualT
+    | WithT
+    | DoT
+    | EndT
+    | WhileT
+    | CaseT
+    | IdentT
+    | WhitespaceT
+    | CommentT     
+    deriving (Bounded, Eq, Show, Enum, Ord, Ix)
+
+instance Tag TokenTag
+
+instance Taggable Token TokenTag where
+    getTag = \case
+        Zero       -> ZeroT
+        One        -> OneT
+        IntLit _   -> IntLitT
+        LParen     -> LParenT
+        RParen     -> RParenT
+        Colon      -> ColonT
+        Semicolon  -> SemicolonT
+        Bang       -> BangT
+        Assign     -> AssignT
+        LessThan   -> LessThanT
+        Ref        -> RefT
+        IntType    -> IntTypeT
+        BoolType   -> BoolTypeT
+        UnitType   -> UnitTypeT
+        Add        -> AddT
+        Sub        -> SubT
+        Mul        -> MulT
+        AndOp      -> AndOpT
+        OrOp       -> OrOpT
+        Bar        -> BarT
+        Arrow      -> ArrowT
+        Not        -> NotT
+        Equal      -> EqualT
+        With       -> WithT
+        Do         -> DoT
+        End        -> EndT
+        While      -> WhileT
+        Case       -> CaseT
+        Ident _    -> IdentT
+        Whitespace -> WhitespaceT
+        Comment    -> CommentT
+
 data MatchState = Wait | Accept Token | Reject deriving (Eq, Show)
 
 -- Matchers
@@ -90,6 +170,7 @@ matchAnyPositiveInt = StateMachine 0 $ \c -> state $ \s ->
     where
         getDigit c = ord c - ord '0'
 
+-- TODO: Allow ident to have arbitrary unicode characters
 matchAnyIdent :: StateMachine (Maybe String)
 matchAnyIdent = StateMachine (Just "") $ \c -> state $ \case
     Nothing    -> (Reject, Nothing)

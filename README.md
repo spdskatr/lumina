@@ -22,3 +22,7 @@ the choices for character are quite arbitrary and I haven't fully decided on the
 ## Running
 
 This is a Haskell project. To compile and run, `stack run`.
+
+## Specification
+
+Spec writing scheduled for Wednesday.

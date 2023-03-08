@@ -4,6 +4,7 @@ module ToyLanguage2 (demoLRValueGrammar) where
 
 import Lexer (Tag, Taggable(..))
 import ParserGen
+import Utils (countUp)
 import Data.Ix (Ix)
 
 data MyTerminal = Star | Assign | Ident String deriving (Show, Eq)
@@ -33,5 +34,6 @@ demoLRValueGrammar = do
     putStrLn "TESTING L/RValue grammar..."
     let first = getFirst toyGrammar (getNullable toyGrammar)
     let myItems = itemsFrom toyGrammar first (closure toyGrammar first [LR1 (LR0 (NonTerminal Start) [] [NTSymb $ NonTerminal Expr]) (EndOfInput)])
-    ppList $ myItems
+    ppAssocList $ countUp myItems
     putStrLn $ "Number of states: " ++ (show $ length myItems)
+    ppAssocList $ generateAction toyGrammar first myItems (NonTerminal Start)

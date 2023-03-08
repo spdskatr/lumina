@@ -10,11 +10,11 @@
 module ParserGen where
 
 import Control.Monad (guard, forM_)
-import Data.List (findIndex, nub)
+import Data.List (findIndex, nub, elemIndex)
 import Data.List.Extra (enumerate)
 
 import Lexer (Token (..), Tag)
-import Utils (orElse, update, untilFixedPoint)
+import Utils (orElse, update, untilFixedPoint, countUp)
 
 data NonTerminal n = NonTerminal n deriving (Eq, Show)
 data Terminal tt = Tok tt | Epsilon | EndOfInput deriving (Eq, Show)
@@ -23,9 +23,10 @@ data Production n tt = Production (NonTerminal n) [GrammarSymbol n tt] deriving 
 newtype ParseTable n tt a = ParseTable [(GrammarSymbol n tt, a)] deriving (Eq, Show)
 data LR0Item n tt = LR0 (NonTerminal n) [GrammarSymbol n tt] [GrammarSymbol n tt] deriving (Eq, Show)
 data LR1Item n tt = LR1 (LR0Item n tt) (Terminal tt) deriving (Eq, Show)
+data ParseAction = Shift Int | Reduce Int | Accept deriving (Eq, Show)
 
 -- Utils for Parse tables
-(!) :: (Eq tt, Eq n, Eq a) => ParseTable n tt a -> GrammarSymbol n tt -> Maybe a
+(!) :: (Eq tt, Eq n) => ParseTable n tt a -> GrammarSymbol n tt -> Maybe a
 (ParseTable t) ! s = lookup s t
 
 -- Pretty-printing
@@ -56,7 +57,7 @@ allGrammarSymbols :: (Tag n, Tag tt) => [GrammarSymbol n tt]
 allGrammarSymbols = map (TSymb . Tok) allTags ++ map (NTSymb . NonTerminal) allTags
 
 -- NULLABLE
-initNullable :: (Tag tt) => [(GrammarSymbol n tt, Bool)]
+initNullable :: [(GrammarSymbol n tt, Bool)]
 initNullable = [(TSymb Epsilon, True)]
 
 iterNullable :: (Tag tt, Eq n) => [Production n tt] -> [(GrammarSymbol n tt, Bool)] -> [(GrammarSymbol n tt, Bool)]
@@ -87,7 +88,7 @@ getFirst :: (Tag tt, Eq n) => [Production n tt] -> ParseTable n tt Bool -> Parse
 getFirst p nullable = ParseTable $ untilFixedPoint (iterFirst p nullable) initFirst
 
 lookupFirst :: (Tag tt, Eq n) => ParseTable n tt [Terminal tt] -> [GrammarSymbol n tt] -> [Terminal tt]
-lookupFirst first []     = [Epsilon]
+lookupFirst _     []     = [Epsilon]
 lookupFirst first (x:xs) = 
     let someResults = (first ! x `orElse` []) in 
         if Epsilon `elem` someResults then 
@@ -107,7 +108,7 @@ getBeginItems p first a prec = do
 
 stepClosure :: (Tag tt, Eq n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [LR1Item n tt] -> [LR1Item n tt]
 stepClosure p first items = nub $ items ++ do
-    LR1 (LR0 n1 _ nx) a <- items
+    LR1 (LR0 _ _ nx) a <- items
     case nx of
         (NTSymb (NonTerminal n2):xs) -> getBeginItems p first (NonTerminal n2) (xs ++ [TSymb a])
         _ -> []
@@ -117,22 +118,42 @@ closure p first = untilFixedPoint (stepClosure p first)
 
 -- GOTO
 goto :: (Tag tt, Eq n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [LR1Item n tt] -> GrammarSymbol n tt -> [LR1Item n tt]
-goto p first items elem = closure p first $ do
+goto p first items e = closure p first $ do
     (LR1 (LR0 n hd tl) la) <- items
     case tl of
-        (x:xs) -> if x == elem then [LR1 (LR0 n (x:hd) xs) la] else []
+        (x:xs) -> if x == e then [LR1 (LR0 n (x:hd) xs) la] else []
         _ -> []
 
 -- LR(1) items
 stepItems :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [[LR1Item n tt]] -> [[LR1Item n tt]]
 stepItems p first elems = nub $ elems ++ do
-    elem <- elems
+    e <- elems
     x <- allGrammarSymbols
-    let nx = goto p first elem x
+    let nx = goto p first e x
     guard $ not (null nx)
     return nx
 
 itemsFrom :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [LR1Item n tt] -> [[LR1Item n tt]]
-itemsFrom p first elem = untilFixedPoint (stepItems p first) [elem]
+itemsFrom p first e = untilFixedPoint (stepItems p first) [e]
 
 -- LR(1) parse table generator
+-- Code assumes that the first state in the list of items is the start state.
+generateAction :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [[LR1Item n tt]] -> NonTerminal n -> [((Int, Terminal tt), ParseAction)]
+generateAction p first states start = nub $ do
+    (index, state) <- countUp states
+    (LR1 (LR0 n hd tl) la) <- state
+    case tl of
+        TSymb (Tok tag) : _ -> do
+            let nx = goto p first state (TSymb (Tok tag))
+            case elemIndex nx states of
+                Just i -> return ((index, Tok tag), Shift i)
+                Nothing -> if null nx then [] else error $ "Internal parser error, state " ++ show nx ++ " not found"
+        [] -> do
+            if n /= start then
+                return ((index, la), Reduce $ elemIndex (Production n (reverse hd ++ tl)) p `orElse`
+                    (error $ "Internal parser error, production " ++ show n ++ " -> " ++ show (reverse hd ++ tl) ++ " not found"))
+            else
+                return ((index, EndOfInput), Accept)
+        _ -> []
+    
+-- TODO: LALR(1) some day

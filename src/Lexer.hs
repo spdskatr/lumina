@@ -28,7 +28,7 @@ import Data.Char (isAlpha, isNumber, ord)
 import Data.Ix (Ix)
 import Data.Maybe (mapMaybe)
 
-class (Bounded t, Enum t, Ord t, Ix t) => Tag t
+class (Bounded t, Enum t, Ord t, Ix t, Show t) => Tag t
 
 class (Tag t) => Taggable x t where
     getTag :: x -> t

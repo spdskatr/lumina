@@ -1,7 +1,8 @@
 module Utils (
     orElse,
     update,
-    untilFixedPoint
+    untilFixedPoint,
+    countUp
 ) where
 
 orElse :: Maybe a -> a -> a
@@ -14,3 +15,6 @@ update f ((a1,m1):xs) (a,m) = if a == a1 then (a1, f m1 m) : xs else (a1,m1) : u
 
 untilFixedPoint :: (Eq a) => (a -> a) -> a -> a
 untilFixedPoint f x = let y = f x in if y == x then y else untilFixedPoint f y
+
+countUp :: [a] -> [(Int, a)]
+countUp = zip [0..]

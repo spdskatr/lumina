@@ -7,9 +7,9 @@
  - then merge by core, then generate the action and goto tables LR(1) style
  -}
 
-module Parser where
+module ParserGen where
 
-import Control.Monad (guard)
+import Control.Monad (guard, forM_)
 import Data.List (findIndex, nub)
 import Data.List.Extra (enumerate)
 
@@ -28,6 +28,18 @@ data LR1Item n tt = LR1 (LR0Item n tt) (Terminal tt) deriving (Eq, Show)
 (!) :: (Eq tt, Eq n, Eq a) => ParseTable n tt a -> GrammarSymbol n tt -> Maybe a
 (ParseTable t) ! s = lookup s t
 
+-- Pretty-printing
+
+ppAssocList :: (Show a, Show b) => [(a, b)] -> IO ()
+ppAssocList x = let y = map (\(a, b) -> show a ++ ": \t" ++ show b) x
+    in forM_ y putStrLn
+
+ppParseTable :: (Show n, Show tt, Show b) => ParseTable n tt b -> IO ()
+ppParseTable (ParseTable x) = ppAssocList x
+
+ppList :: (Show a) => [a] -> IO ()
+ppList x = forM_ (map show x) putStrLn
+
 -- Preprocessing - Filter out all comments and whitespace, add End of Input
 preprocessLumina :: [Token] -> [Terminal Token]
 preprocessLumina []     = [EndOfInput]
@@ -38,6 +50,10 @@ preprocessLumina (x:xs) = case x of
 
 allTags :: (Tag tt) => [tt]
 allTags = enumerate
+
+-- Does not include epsilon or EndOfInput symbol
+allGrammarSymbols :: (Tag n, Tag tt) => [GrammarSymbol n tt]
+allGrammarSymbols = map (TSymb . Tok) allTags ++ map (NTSymb . NonTerminal) allTags
 
 -- NULLABLE
 initNullable :: (Tag tt) => [(GrammarSymbol n tt, Bool)]
@@ -106,5 +122,17 @@ goto p first items elem = closure p first $ do
     case tl of
         (x:xs) -> if x == elem then [LR1 (LR0 n (x:hd) xs) la] else []
         _ -> []
+
+-- LR(1) items
+stepItems :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [[LR1Item n tt]] -> [[LR1Item n tt]]
+stepItems p first elems = nub $ elems ++ do
+    elem <- elems
+    x <- allGrammarSymbols
+    let nx = goto p first elem x
+    guard $ not (null nx)
+    return nx
+
+itemsFrom :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [LR1Item n tt] -> [[LR1Item n tt]]
+itemsFrom p first elem = untilFixedPoint (stepItems p first) [elem]
 
 -- LR(1) parse table generator

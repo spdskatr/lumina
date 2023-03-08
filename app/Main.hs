@@ -1,7 +1,7 @@
 module Main (main) where
 
 import Lexer
-import Parser
+import ParserGen
 
 main :: IO ()
 main = do

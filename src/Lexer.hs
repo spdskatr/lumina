@@ -58,6 +58,7 @@ data Token
     | Arrow
     | Not
     | Equal
+    | Fun
     | With
     | Do
     | End
@@ -93,6 +94,7 @@ data TokenTag
     | ArrowT
     | NotT
     | EqualT
+    | FunT
     | WithT
     | DoT
     | EndT
@@ -130,6 +132,7 @@ instance Taggable Token TokenTag where
         Arrow      -> ArrowT
         Not        -> NotT
         Equal      -> EqualT
+        Fun        -> FunT
         With       -> WithT
         Do         -> DoT
         End        -> EndT
@@ -255,6 +258,7 @@ tokenDefs = [
     matchString_ Arrow "->",
     matchString_ Not "~", -- TODO: Unify this token with ! and then resolve type checking
     matchString_ Equal "=",
+    matchString_ Fun "fun",
     matchString_ With "with",
     matchString_ Do "do",
     matchString_ End "end",

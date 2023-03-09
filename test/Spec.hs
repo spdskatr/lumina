@@ -5,5 +5,4 @@ import ToyLanguage2 (demoLRValueGrammar)
 
 main :: IO ()
 main = do
-    demoArithGrammar
-    demoLRValueGrammar
+    putStrLn "nothing here"

@@ -55,3 +55,4 @@ demoArithGrammar = do
     let myItems = itemsFrom toyGrammar first clos
     ppList myItems
     putStrLn $ "Number of states: " ++ (show $ length myItems)
+    ppAssocList $ generateAction toyGrammar first myItems (NonTerminal Start)

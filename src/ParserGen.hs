@@ -13,6 +13,8 @@ import Control.Monad (guard, forM_)
 import Data.List (findIndex, nub, elemIndex)
 import Data.List.Extra (enumerate)
 
+import System.IO.Unsafe (unsafePerformIO)
+
 import Lexer (Token (..), Tag)
 import Utils (orElse, update, untilFixedPoint, countUp)
 
@@ -67,14 +69,14 @@ iterNullable p nullableList = foldl (update (||)) nullableList $ do
     guard check
     return $ (NTSymb n, check)
 
-getNullable :: (Tag tt, Eq n) => [Production n tt] -> ParseTable n tt Bool
+getNullable :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt Bool
 getNullable p = ParseTable $ untilFixedPoint (iterNullable p) initNullable
 
 -- FIRST
 initFirst :: (Tag tt) => [(GrammarSymbol n tt, [Terminal tt])]
 initFirst = (TSymb Epsilon, [Epsilon]) : (TSymb EndOfInput, [EndOfInput]) : map (\t -> (TSymb (Tok t), [Tok t])) allTags
 
-iterFirst :: (Tag tt, Eq n) => [Production n tt] -> ParseTable n tt Bool -> [(GrammarSymbol n tt, [Terminal tt])] -> [(GrammarSymbol n tt, [Terminal tt])]
+iterFirst :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt Bool -> [(GrammarSymbol n tt, [Terminal tt])] -> [(GrammarSymbol n tt, [Terminal tt])]
 iterFirst p nullable firstList = foldl (update (\a b -> nub $ a ++ b)) firstList $ do
     (Production n tl) <- p
     let i = findIndex (\a -> not $ nullable ! a `orElse` False) tl `orElse` length tl
@@ -84,10 +86,10 @@ iterFirst p nullable firstList = foldl (update (\a b -> nub $ a ++ b)) firstList
     else
         return (NTSymb n, res)
 
-getFirst :: (Tag tt, Eq n) => [Production n tt] -> ParseTable n tt Bool -> ParseTable n tt [Terminal tt]
+getFirst :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt Bool -> ParseTable n tt [Terminal tt]
 getFirst p nullable = ParseTable $ untilFixedPoint (iterFirst p nullable) initFirst
 
-lookupFirst :: (Tag tt, Eq n) => ParseTable n tt [Terminal tt] -> [GrammarSymbol n tt] -> [Terminal tt]
+lookupFirst :: (Tag tt, Tag n) => ParseTable n tt [Terminal tt] -> [GrammarSymbol n tt] -> [Terminal tt]
 lookupFirst _     []     = [Epsilon]
 lookupFirst first (x:xs) = 
     let someResults = (first ! x `orElse` []) in 
@@ -97,27 +99,27 @@ lookupFirst first (x:xs) =
             nub $ filter (/= Epsilon) someResults
 
 -- LR(1) CLOSURE
-productionsFor :: (Eq n) => [Production n tt] -> NonTerminal n -> [Production n tt]
+productionsFor :: (Tag n) => [Production n tt] -> NonTerminal n -> [Production n tt]
 productionsFor p a = filter (\(Production b _) -> a == b) p
 
-getBeginItems :: (Tag tt, Eq n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> NonTerminal n -> [GrammarSymbol n tt] -> [LR1Item n tt]
+getBeginItems :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> NonTerminal n -> [GrammarSymbol n tt] -> [LR1Item n tt]
 getBeginItems p first a prec = do
     (Production _ tl) <- productionsFor p a
     b <- lookupFirst first prec
     return $ LR1 (LR0 a [] tl) b
 
-stepClosure :: (Tag tt, Eq n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [LR1Item n tt] -> [LR1Item n tt]
+stepClosure :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [LR1Item n tt] -> [LR1Item n tt]
 stepClosure p first items = nub $ items ++ do
     LR1 (LR0 _ _ nx) a <- items
     case nx of
         (NTSymb (NonTerminal n2):xs) -> getBeginItems p first (NonTerminal n2) (xs ++ [TSymb a])
         _ -> []
 
-closure :: (Tag tt, Eq n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [LR1Item n tt] -> [LR1Item n tt]
+closure :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [LR1Item n tt] -> [LR1Item n tt]
 closure p first = untilFixedPoint (stepClosure p first)
 
 -- GOTO
-goto :: (Tag tt, Eq n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [LR1Item n tt] -> GrammarSymbol n tt -> [LR1Item n tt]
+goto :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [LR1Item n tt] -> GrammarSymbol n tt -> [LR1Item n tt]
 goto p first items e = closure p first $ do
     (LR1 (LR0 n hd tl) la) <- items
     case tl of
@@ -125,16 +127,25 @@ goto p first items e = closure p first $ do
         _ -> []
 
 -- LR(1) items
-stepItems :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [[LR1Item n tt]] -> [[LR1Item n tt]]
-stepItems p first elems = nub $ elems ++ do
-    e <- elems
-    x <- allGrammarSymbols
-    let nx = goto p first e x
-    guard $ not (null nx)
-    return nx
+stepItems :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> ([[LR1Item n tt]], [[LR1Item n tt]]) -> ([[LR1Item n tt]], [[LR1Item n tt]])
+stepItems p first (orig, elems) = (old, new) 
+    where
+        old = nub $ orig ++ elems
+        new = do
+            e <- elems
+            x <- allGrammarSymbols
+            let nx = goto p first e x
+            guard $ not (null nx)
+            guard $ not (nx `elem` old)
+            return nx
+
+tagList :: [a] -> [a]
+tagList x = unsafePerformIO $ do
+    putStrLn $ show $ length x
+    return x
 
 itemsFrom :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [LR1Item n tt] -> [[LR1Item n tt]]
-itemsFrom p first e = untilFixedPoint (stepItems p first) [e]
+itemsFrom p first e = fst $ untilFixedPoint (stepItems p first) ([], [e])
 
 -- LR(1) parse table generator
 -- Code assumes that the first state in the list of items is the start state.

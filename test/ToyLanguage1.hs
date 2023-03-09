@@ -2,8 +2,8 @@
 
 module ToyLanguage1 (demoArithGrammar) where
 
-import Lexer (Tag, Taggable(..))
-import ParserGen
+import Lumina.Frontend.Lexer (Tag, Taggable(..))
+import Lumina.Frontend.ParserGen (generateParser, Production(..), GrammarSymbol(..), NonTerminal(..), Terminal(..))
 import Data.Ix (Ix)
 
 data ToyTerminal = Value Int | Add | Mul | LParen | RParen deriving (Eq, Show)
@@ -35,24 +35,4 @@ toyGrammar = [
 
 demoArithGrammar :: IO ()
 demoArithGrammar = do
-    putStrLn "Generating..."
-    putStrLn $ show $ (initNullable :: [(GrammarSymbol ToyNonTerminal ToyTerminalTag, Bool)])
-    putStrLn $ show $ iterNullable toyGrammar initNullable
-    let nullable = getNullable toyGrammar
-    ppParseTable nullable
-    putStrLn "----- TEST 2"
-    putStrLn $ show $ (initFirst :: [(GrammarSymbol ToyNonTerminal ToyTerminalTag, [Terminal ToyTerminalTag])])
-    putStrLn $ show $ iterFirst toyGrammar nullable initFirst
-    let first = getFirst toyGrammar nullable
-    ppParseTable first
-    putStrLn $ show $ lookupFirst first [NTSymb $ NonTerminal Term, NTSymb $ NonTerminal Expr, TSymb $ Tok RParenT]
-    putStrLn "----- TEST 3"
-    let clos = closure toyGrammar first [LR1 (LR0 (NonTerminal Start) [] [NTSymb $ NonTerminal Expr]) (EndOfInput)]
-    ppList clos
-    putStrLn $ "----- TEST 4"
-    ppList $ goto toyGrammar first clos (NTSymb $ NonTerminal Expr)
-    putStrLn "----- TEST 5"
-    let myItems = itemsFrom toyGrammar first clos
-    ppList myItems
-    putStrLn $ "Number of states: " ++ (show $ length myItems)
-    ppAssocList $ generateAction toyGrammar first myItems (NonTerminal Start)
+    putStrLn $ show $ generateParser toyGrammar

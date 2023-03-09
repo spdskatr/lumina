@@ -1,8 +1,8 @@
 module ParserGenTest (runPGTest) where
 
 import Test.QuickCheck (Arbitrary(..), arbitraryBoundedEnum, quickCheck)
-import Lexer (TokenTag)
-import ParserGen (Terminal(..), fromInt, toInt)
+import Lumina.Frontend.Lexer (TokenTag)
+import Lumina.Frontend.ParserGen (Terminal(..), fromInt, toInt)
 
 instance Arbitrary TokenTag where
     arbitrary = arbitraryBoundedEnum

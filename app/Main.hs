@@ -1,10 +1,9 @@
 module Main (main) where
 
-import Lexer (TokenTag, getAllTokensLumina)
-import ParserGen (preprocessLumina, generateParser, LRParser)
-import LuminaGrammar (luminaGrammar, luminaStart, LNT(..))
---import ParserGen (NonTerminal(..), ParseTable(..), ppAssocList, ppList, closure, getFirst, getNullable, itemsFrom, generateAction)
-import Utils (countUp)
+import Lumina.Frontend.Lexer (TokenTag, getAllTokensLumina)
+import Lumina.Frontend.ParserGen (preprocessLumina, generateParser, LRParser)
+import Lumina.Frontend.LuminaGrammar (luminaGrammar, LNT(..))
+import Lumina.Utils (countUp)
 
 -- WARNING - this may take several minutes to run
 genAndPrintLR1Parser :: IO ()
@@ -21,4 +20,4 @@ demoLexer = do
     putStrLn ""
 
 main :: IO ()
-main = genAndPrintLR1Parser
+main = demoLexer

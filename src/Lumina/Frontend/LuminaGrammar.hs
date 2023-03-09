@@ -1,9 +1,12 @@
 {-# LANGUAGE LambdaCase, MultiParamTypeClasses, FlexibleInstances #-}
 
-module LuminaGrammar where
+module Lumina.Frontend.LuminaGrammar (
+    LNT(..),
+    luminaGrammar
+) where
 
-import Lexer (Tag, Taggable(..), Token(..), TokenTag(..))
-import ParserGen (Production(..), NonTerminal(..), GrammarSymbol(..), Terminal(..),  LR1Item(..), LR0Item(..))
+import Lumina.Frontend.Lexer (Tag, Taggable(..), Token(..), TokenTag(..))
+import Lumina.Frontend.ParserGen (Production(..), NonTerminal(..), GrammarSymbol(..), Terminal(..),  LR1Item(..), LR0Item(..))
 import Data.Ix (Ix)
 
 data LNT
@@ -18,7 +21,7 @@ data LNT
 
 instance Tag LNT
 
--- Utils for making grammars
+-- Lumina.Utils for making grammars
 class GrammarSymbolSeq s where
     pr' :: [GrammarSymbol LNT TokenTag] -> LNT -> s
 
@@ -72,6 +75,3 @@ luminaGrammar = [
     p_ Atom OneT,
     p_ Atom ZeroT
     ]
-
-luminaStart :: LR1Item LNT TokenTag
-luminaStart = LR1 (LR0 (NonTerminal Start) [] [NTSymb $ NonTerminal Expr]) EndOfInput

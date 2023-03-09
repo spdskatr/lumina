@@ -25,10 +25,10 @@ source-repository head
 
 library
   exposed-modules:
-      Lexer
-      LuminaGrammar
-      ParserGen
-      Utils
+      Lumina.Frontend.Lexer
+      Lumina.Frontend.LuminaGrammar
+      Lumina.Frontend.ParserGen
+      Lumina.Utils
   other-modules:
       Paths_lumina
   hs-source-dirs:

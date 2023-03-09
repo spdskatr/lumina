@@ -7,7 +7,7 @@
  - then merge by core, then generate the action and goto tables LR(1) style
  -}
 
-module ParserGen (
+module Lumina.Frontend.ParserGen (
     NonTerminal(..),
     Terminal(..),
     GrammarSymbol(..),
@@ -18,6 +18,8 @@ module ParserGen (
     ParseAction(..),
     LRParser(..),
     (!),
+    fromInt,
+    toInt,
     ppAssocList,
     ppParseTable,
     ppList,
@@ -36,8 +38,8 @@ import Data.Function (on)
 import Data.List.Extra (enumerate)
 import Data.Ix (Ix(..))
 
-import Lexer (Token (..), Tag)
-import Utils (orElse, update, untilFixedPoint, countUp)
+import Lumina.Frontend.Lexer (Token (..), Tag)
+import Lumina.Utils (orElse, update, untilFixedPoint, countUp)
 
 data NonTerminal n = NonTerminal n deriving (Eq, Show)
 data Terminal tt = Tok tt | Epsilon | EndOfInput deriving (Eq, Show, Read)
@@ -49,7 +51,7 @@ data LR1Item n tt = LR1 (LR0Item n tt) (Terminal tt) deriving (Eq, Show)
 data ParseAction = Shift Int | Reduce Int | Accept deriving (Eq, Show, Read)
 data LRParser n tt = LRParser [((Int, Terminal tt), ParseAction)] [((Int, n), Int)] deriving (Eq, Read, Show)
 
--- Utils for indexing the action table
+-- Lumina.Utils for indexing the action table
 toInt :: (Tag tt) => Terminal tt -> Int
 toInt Epsilon = 0
 toInt EndOfInput = 1
@@ -68,7 +70,7 @@ instance (Tag tt) => Ix (Terminal tt) where
     index (l, r) a = index (toInt l, toInt r) (toInt a)
     inRange (l, r) a = inRange (toInt l, toInt r) (toInt a)
 
--- Utils for Parse tables
+-- Lumina.Utils for Parse tables
 (!) :: (Eq tt, Eq n) => ParseTable n tt a -> GrammarSymbol n tt -> Maybe a
 (ParseTable t) ! s = lookup s t
 

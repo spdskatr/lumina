@@ -6,4 +6,6 @@ import ParserGenTest (runPGTest)
 
 main :: IO ()
 main = do
+    demoArithGrammar
+    demoLRValueGrammar
     runPGTest

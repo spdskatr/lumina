@@ -1,4 +1,4 @@
-module Utils (
+module Lumina.Utils (
     orElse,
     update,
     untilFixedPoint,

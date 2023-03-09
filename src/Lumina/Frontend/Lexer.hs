@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase, ExistentialQuantification, MultiParamTypeClasses #-}
 
-module Lexer (
+module Lumina.Frontend.Lexer (
     Token (..),
     Tag,
     Taggable (..),

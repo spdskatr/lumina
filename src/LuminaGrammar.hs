@@ -14,7 +14,7 @@ data LNT
     | CExpr
     | Atom
     | TExpr
-    | CaseList deriving (Show, Bounded, Eq, Enum, Ord, Ix)
+    | CaseList deriving (Show, Bounded, Eq, Enum, Ord, Ix, Read)
 
 instance Tag LNT
 

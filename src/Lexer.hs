@@ -103,7 +103,7 @@ data TokenTag
     | IdentT
     | WhitespaceT
     | CommentT     
-    deriving (Bounded, Eq, Show, Enum, Ord, Ix)
+    deriving (Bounded, Eq, Show, Enum, Ord, Ix, Read)
 
 instance Tag TokenTag
 

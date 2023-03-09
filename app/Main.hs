@@ -1,17 +1,18 @@
 module Main (main) where
 
-import Lexer
-import ParserGen
+import Lexer (TokenTag, getAllTokensLumina)
+import ParserGen (preprocessLumina, generateParser, LRParser)
 import LuminaGrammar (luminaGrammar, luminaStart, LNT(..))
 --import ParserGen (NonTerminal(..), ParseTable(..), ppAssocList, ppList, closure, getFirst, getNullable, itemsFrom, generateAction)
 import Utils (countUp)
 
 -- WARNING - this may take several minutes to run
-genAndPrintLR1ParseTable :: IO ()
-genAndPrintLR1ParseTable = do
-    let first = getFirst luminaGrammar (getNullable luminaGrammar)
-    let myItems = itemsFrom luminaGrammar first (closure luminaGrammar first [luminaStart])
-    print $ generateAction luminaGrammar first myItems (NonTerminal Start)
+genAndPrintLR1Parser :: IO ()
+genAndPrintLR1Parser = do
+    print $ generateParser luminaGrammar
+
+loadParserFrom :: String -> IO (LRParser LNT TokenTag)
+loadParserFrom = fmap read . readFile
 
 demoLexer :: IO ()
 demoLexer = do
@@ -20,4 +21,4 @@ demoLexer = do
     putStrLn ""
 
 main :: IO ()
-main = genAndPrintLR1ParseTable
+main = genAndPrintLR1Parser

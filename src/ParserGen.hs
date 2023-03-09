@@ -7,25 +7,66 @@
  - then merge by core, then generate the action and goto tables LR(1) style
  -}
 
-module ParserGen where
+module ParserGen (
+    NonTerminal(..),
+    Terminal(..),
+    GrammarSymbol(..),
+    Production(..),
+    ParseTable(..),
+    LR0Item(..),
+    LR1Item(..),
+    ParseAction(..),
+    LRParser(..),
+    (!),
+    ppAssocList,
+    ppParseTable,
+    ppList,
+    preprocessLumina,
+    getNullable,
+    getFirst,
+    itemsFrom,
+    closure,
+    generateAction,
+    generateParser
+) where
 
 import Control.Monad (guard, forM_)
 import Data.List (findIndex, nub, elemIndex)
+import Data.Function (on)
 import Data.List.Extra (enumerate)
-
-import System.IO.Unsafe (unsafePerformIO)
+import Data.Ix (Ix(..))
 
 import Lexer (Token (..), Tag)
 import Utils (orElse, update, untilFixedPoint, countUp)
 
 data NonTerminal n = NonTerminal n deriving (Eq, Show)
-data Terminal tt = Tok tt | Epsilon | EndOfInput deriving (Eq, Show)
+data Terminal tt = Tok tt | Epsilon | EndOfInput deriving (Eq, Show, Read)
 data GrammarSymbol n tt = TSymb (Terminal tt) | NTSymb (NonTerminal n) deriving (Eq, Show)
 data Production n tt = Production (NonTerminal n) [GrammarSymbol n tt] deriving (Eq, Show)
 newtype ParseTable n tt a = ParseTable [(GrammarSymbol n tt, a)] deriving (Eq, Show)
 data LR0Item n tt = LR0 (NonTerminal n) [GrammarSymbol n tt] [GrammarSymbol n tt] deriving (Eq, Show)
 data LR1Item n tt = LR1 (LR0Item n tt) (Terminal tt) deriving (Eq, Show)
-data ParseAction = Shift Int | Reduce Int | Accept deriving (Eq, Show)
+data ParseAction = Shift Int | Reduce Int | Accept deriving (Eq, Show, Read)
+data LRParser n tt = LRParser [((Int, Terminal tt), ParseAction)] [((Int, n), Int)] deriving (Eq, Read, Show)
+
+-- Utils for indexing the action table
+toInt :: (Tag tt) => Terminal tt -> Int
+toInt Epsilon = 0
+toInt EndOfInput = 1
+toInt (Tok tag) = 2 + fromEnum tag
+
+fromInt :: (Tag tt) => Int -> Terminal tt
+fromInt 0 = Epsilon
+fromInt 1 = EndOfInput
+fromInt x = Tok $ toEnum (x-2)
+
+instance (Tag tt) => Ord (Terminal tt) where
+    compare = compare `on` toInt
+
+instance (Tag tt) => Ix (Terminal tt) where
+    range (l, r) = map fromInt $ range (toInt l, toInt r)
+    index (l, r) a = index (toInt l, toInt r) (toInt a)
+    inRange (l, r) a = inRange (toInt l, toInt r) (toInt a)
 
 -- Utils for Parse tables
 (!) :: (Eq tt, Eq n) => ParseTable n tt a -> GrammarSymbol n tt -> Maybe a
@@ -139,11 +180,6 @@ stepItems p first (orig, elems) = (old, new)
             guard $ not (nx `elem` old)
             return nx
 
-tagList :: [a] -> [a]
-tagList x = unsafePerformIO $ do
-    putStrLn $ show $ length x
-    return x
-
 itemsFrom :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [LR1Item n tt] -> [[LR1Item n tt]]
 itemsFrom p first e = fst $ untilFixedPoint (stepItems p first) ([], [e])
 
@@ -151,20 +187,38 @@ itemsFrom p first e = fst $ untilFixedPoint (stepItems p first) ([], [e])
 -- Code assumes that the first state in the list of items is the start state.
 generateAction :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [[LR1Item n tt]] -> NonTerminal n -> [((Int, Terminal tt), ParseAction)]
 generateAction p first states start = nub $ do
-    (index, state) <- countUp states
+    (ind, state) <- countUp states
     (LR1 (LR0 n hd tl) la) <- state
     case tl of
         TSymb (Tok tag) : _ -> do
             let nx = goto p first state (TSymb (Tok tag))
             case elemIndex nx states of
-                Just i -> return ((index, Tok tag), Shift i)
+                Just i -> return ((ind, Tok tag), Shift i)
                 Nothing -> if null nx then [] else error $ "Internal parser error, state " ++ show nx ++ " not found"
         [] -> do
             if n /= start then
-                return ((index, la), Reduce $ elemIndex (Production n (reverse hd ++ tl)) p `orElse`
+                return ((ind, la), Reduce $ elemIndex (Production n (reverse hd ++ tl)) p `orElse`
                     (error $ "Internal parser error, production " ++ show n ++ " -> " ++ show (reverse hd ++ tl) ++ " not found"))
             else
-                return ((index, EndOfInput), Accept)
+                return ((ind, EndOfInput), Accept)
         _ -> []
+
+generateGoto :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [[LR1Item n tt]] -> [((Int, n), Int)]
+generateGoto p first states = nub $ do
+    (ind, state) <- countUp states
+    a <- allTags
+    let res = goto p first state (NTSymb $ NonTerminal a)
+    case elemIndex res states of
+        Just i -> return ((ind, a), i)
+        Nothing -> if null res then [] else error $ "Internal parser error, state " ++ show res ++ " not found"
+
+-- generateParser assumes the starting production is the first one in the list.
+generateParser :: (Tag tt, Tag n) => [Production n tt] -> LRParser n tt
+generateParser p = 
+        LRParser (generateAction p first myItems (NonTerminal start)) (generateGoto p first myItems)
+    where
+        (Production (NonTerminal start) tl) = head p
+        first = getFirst p (getNullable p)
+        myItems = itemsFrom p first (closure p first [LR1 (LR0 (NonTerminal start) [] tl) EndOfInput])
     
 -- TODO: LALR(1) some day

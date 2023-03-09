@@ -5,8 +5,8 @@ module Lumina.Frontend.LuminaGrammar (
     luminaGrammar
 ) where
 
-import Lumina.Frontend.Lexer (Tag, Taggable(..), Token(..), TokenTag(..))
-import Lumina.Frontend.ParserGen (Production(..), NonTerminal(..), GrammarSymbol(..), Terminal(..),  LR1Item(..), LR0Item(..))
+import Lumina.Frontend.Lexer (Tag, TokenTag(..))
+import Lumina.Frontend.ParserGen (Production(..), NonTerminal(..), GrammarSymbol(..), Terminal(..))
 import Data.Ix (Ix)
 
 data LNT

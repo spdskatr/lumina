@@ -3,7 +3,6 @@ module Main (main) where
 import Lumina.Frontend.Lexer (TokenTag, getAllTokensLumina)
 import Lumina.Frontend.ParserGen (preprocessLumina, generateParser, LRParser)
 import Lumina.Frontend.LuminaGrammar (luminaGrammar, LNT(..))
-import Lumina.Utils (countUp)
 
 -- WARNING - this may take several minutes to run
 genAndPrintLR1Parser :: IO ()
@@ -20,4 +19,4 @@ demoLexer = do
     putStrLn ""
 
 main :: IO ()
-main = demoLexer
+main = genAndPrintLR1Parser

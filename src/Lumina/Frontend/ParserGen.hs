@@ -1,5 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
-
 {-
  - Parser library generates LALR(1) parse table and then executes the parse.
  - 
@@ -41,7 +39,7 @@ import Data.Ix (Ix(..))
 import Lumina.Frontend.Lexer (Token (..), Tag)
 import Lumina.Utils (orElse, update, untilFixedPoint, countUp)
 
-data NonTerminal n = NonTerminal n deriving (Eq, Show)
+newtype NonTerminal n = NonTerminal n deriving (Eq, Show)
 data Terminal tt = Tok tt | Epsilon | EndOfInput deriving (Eq, Show, Read)
 data GrammarSymbol n tt = TSymb (Terminal tt) | NTSymb (NonTerminal n) deriving (Eq, Show)
 data Production n tt = Production (NonTerminal n) [GrammarSymbol n tt] deriving (Eq, Show)
@@ -70,7 +68,7 @@ instance (Tag tt) => Ix (Terminal tt) where
     index (l, r) a = index (toInt l, toInt r) (toInt a)
     inRange (l, r) a = inRange (toInt l, toInt r) (toInt a)
 
--- Lumina.Utils for Parse tables
+-- Utils for Parse tables
 (!) :: (Eq tt, Eq n) => ParseTable n tt a -> GrammarSymbol n tt -> Maybe a
 (ParseTable t) ! s = lookup s t
 
@@ -110,7 +108,7 @@ iterNullable p nullableList = foldl (update (||)) nullableList $ do
     (Production n tl) <- p
     let check = all (\symb -> lookup symb nullableList `orElse` False) tl
     guard check
-    return $ (NTSymb n, check)
+    return (NTSymb n, check)
 
 getNullable :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt Bool
 getNullable p = ParseTable $ untilFixedPoint (iterNullable p) initNullable
@@ -123,7 +121,7 @@ iterFirst :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt Bool -> [(G
 iterFirst p nullable firstList = foldl (update (\a b -> nub $ a ++ b)) firstList $ do
     (Production n tl) <- p
     let i = findIndex (\a -> not $ nullable ! a `orElse` False) tl `orElse` length tl
-    let res = filter (/= Epsilon) $ concat $ map (\s -> lookup s firstList `orElse` []) $ take (i+1) tl
+    let res = filter (/= Epsilon) $ concatMap (\s -> lookup s firstList `orElse` []) (take (i+1) tl)
     if i == length tl then
         return (NTSymb n, Epsilon : res)
     else
@@ -134,9 +132,9 @@ getFirst p nullable = ParseTable $ untilFixedPoint (iterFirst p nullable) initFi
 
 lookupFirst :: (Tag tt, Tag n) => ParseTable n tt [Terminal tt] -> [GrammarSymbol n tt] -> [Terminal tt]
 lookupFirst _     []     = [Epsilon]
-lookupFirst first (x:xs) = 
-    let someResults = (first ! x `orElse` []) in 
-        if Epsilon `elem` someResults then 
+lookupFirst first (x:xs) =
+    let someResults = (first ! x `orElse` []) in
+        if Epsilon `elem` someResults then
             nub $ filter (/= Epsilon) someResults ++ lookupFirst first xs
         else
             nub $ filter (/= Epsilon) someResults
@@ -166,12 +164,12 @@ goto :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] ->
 goto p first items e = closure p first $ do
     (LR1 (LR0 n hd tl) la) <- items
     case tl of
-        (x:xs) -> if x == e then [LR1 (LR0 n (x:hd) xs) la] else []
+        (x:xs) -> [LR1 (LR0 n (x:hd) xs) la | x == e]
         _ -> []
 
 -- LR(1) items
 stepItems :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> ([[LR1Item n tt]], [[LR1Item n tt]]) -> ([[LR1Item n tt]], [[LR1Item n tt]])
-stepItems p first (orig, elems) = (old, new) 
+stepItems p first (orig, elems) = (old, new)
     where
         old = nub $ orig ++ elems
         new = do
@@ -179,7 +177,7 @@ stepItems p first (orig, elems) = (old, new)
             x <- allGrammarSymbols
             let nx = goto p first e x
             guard $ not (null nx)
-            guard $ not (nx `elem` old)
+            guard $ notElem nx old
             return nx
 
 itemsFrom :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [LR1Item n tt] -> [[LR1Item n tt]]
@@ -200,7 +198,7 @@ generateAction p first states start = nub $ do
         [] -> do
             if n /= start then
                 return ((ind, la), Reduce $ elemIndex (Production n (reverse hd ++ tl)) p `orElse`
-                    (error $ "Internal parser error, production " ++ show n ++ " -> " ++ show (reverse hd ++ tl) ++ " not found"))
+                    error ("Internal parser error, production " ++ show n ++ " -> " ++ show (reverse hd ++ tl) ++ " not found"))
             else
                 return ((ind, EndOfInput), Accept)
         _ -> []
@@ -216,11 +214,11 @@ generateGoto p first states = nub $ do
 
 -- generateParser assumes the starting production is the first one in the list.
 generateParser :: (Tag tt, Tag n) => [Production n tt] -> LRParser n tt
-generateParser p = 
+generateParser p =
         LRParser (generateAction p first myItems (NonTerminal start)) (generateGoto p first myItems)
     where
         (Production (NonTerminal start) tl) = head p
         first = getFirst p (getNullable p)
         myItems = itemsFrom p first (closure p first [LR1 (LR0 (NonTerminal start) [] tl) EndOfInput])
-    
+
 -- TODO: LALR(1) some day

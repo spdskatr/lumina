@@ -4,7 +4,6 @@ module ToyLanguage2 (demoLRValueGrammar) where
 
 import Lumina.Frontend.Lexer (Tag, Taggable(..))
 import Lumina.Frontend.ParserGen (generateParser, Production(..), GrammarSymbol(..), NonTerminal(..), Terminal(..))
-import Lumina.Utils (countUp)
 import Data.Ix (Ix)
 
 data MyTerminal = Star | Assign | Ident String deriving (Show, Eq)

@@ -4,7 +4,7 @@
 
 (2 + 3) * 5
 
-(fun (x : int) : int -> 5 end) 3
+fun (x : int) : int -> 5 end 3
 
 with fun f(x:int) : int = 5 do f 4 end
 
@@ -32,3 +32,5 @@ with a : int # = # 0 do
         end
     end
 end
+
+with f : (int -> int -> int) = fun (x : int) : int -> fun (y : int) : int -> x + y end end do f 3 5 end

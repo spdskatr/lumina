@@ -1,4 +1,4 @@
-{- For when your really need some debugging. -}
+{- For when you really need some debugging. -}
 
 module Lumina.UnsafeUtils (unsafeTagLengthList, unsafeTag) where
 

@@ -15,7 +15,6 @@ genAndPrintLR1Parser = do
         error "Uh oh, parser generator ran into conflicts. Check your grammar?"
     else
         putStrLn $ "Total number of states: " ++ show (maximum $ map (fst . fst) action);
-
         putStrLn "Written new parser to lr1.txt. Copy it over to data/lr1.txt when you want to test it."
 
 loadParserFrom :: String -> IO (LRParser LNT TokenTag)

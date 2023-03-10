@@ -36,7 +36,9 @@ class (Tag t) => Taggable x t where
 -- Keep 0 and 1 tokens separate because they can take on other types
 data Token
     = Zero
-    | One
+    | TrueLit
+    | FalseLit
+    | UnitLit
     | IntLit Int
     | LParen
     | RParen
@@ -72,7 +74,9 @@ data Token
 -- For the benefit of the parser.
 data TokenTag
     = ZeroT
-    | OneT
+    | TrueLitT
+    | FalseLitT
+    | UnitLitT
     | IntLitT
     | LParenT
     | RParenT
@@ -102,7 +106,7 @@ data TokenTag
     | CaseT
     | IdentT
     | WhitespaceT
-    | CommentT     
+    | CommentT
     deriving (Bounded, Eq, Show, Enum, Ord, Ix, Read)
 
 instance Tag TokenTag
@@ -110,7 +114,9 @@ instance Tag TokenTag
 instance Taggable Token TokenTag where
     getTag = \case
         Zero       -> ZeroT
-        One        -> OneT
+        TrueLit    -> TrueLitT
+        FalseLit   -> FalseLitT
+        UnitLit    -> UnitLitT
         IntLit _   -> IntLitT
         LParen     -> LParenT
         RParen     -> RParenT
@@ -162,7 +168,7 @@ testStateMachine (StateMachine s cont) inp = evalState stateIter s
 matchString :: Token -> String -> StateMachine String
 matchString tok m = StateMachine m $ \c -> state $ \case
     []     -> (Reject, [])
-    (x:xs) -> if x == c then (if xs == [] then (Accept tok, xs) else (Wait, xs)) else (Reject, [])
+    (x:xs) -> if x == c then (if null xs then (Accept tok, xs) else (Wait, xs)) else (Reject, [])
 
 -- TODO: Deal with bounds checking
 matchAnyPositiveInt :: StateMachine Int
@@ -237,7 +243,9 @@ getAllTokensLumina = getAllTokens tokenDefs
 tokenDefs :: [AnyStateMachine]
 tokenDefs = [
     matchString_ Zero "0",
-    matchString_ One "1",
+    matchString_ TrueLit "true",
+    matchString_ FalseLit "false",
+    matchString_ UnitLit "()",
     matchString_ LParen "(",
     matchString_ RParen ")",
     matchString_ Colon ":",
@@ -268,5 +276,5 @@ tokenDefs = [
     USM matchAnyPositiveInt,
     USM matchSpace,
     USM matchComment]
-    where 
+    where
         matchString_ tok s = USM (matchString tok s)

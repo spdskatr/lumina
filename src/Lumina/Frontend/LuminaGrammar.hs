@@ -25,6 +25,7 @@ data LNT
     | CExpr
     | Atom
     | TExpr
+    | TSubExpr
     | CaseList deriving (Show, Bounded, Eq, Enum, Ord, Ix, Read)
 
 instance Tag LNT
@@ -32,7 +33,9 @@ instance Tag LNT
 data PAST
     = PToken Token
     | PZero
-    | POne
+    | PTrue
+    | PFalse
+    | PUnit
     | PVar PAST
     | PInt PAST
     | PApp PAST PAST
@@ -58,6 +61,7 @@ data PAST
     | PTBool
     | PTUnit
     | PTRef PAST
+    | PTFun PAST PAST
     deriving (Eq, Show)
 
 -- Utils for making grammars
@@ -110,6 +114,16 @@ luminaAnnotatedGrammar = [
 
     (,) (\[(_,a),_] -> PTRef a) $
     p_ TExpr TExpr RefT,
+
+    (,) (\[_,(_,a),_] -> a) $
+    p_ TExpr LParenT TSubExpr RParenT,
+
+    -- TSubExpr (Add arrows)
+    (,) (\[(_,a)] -> a) $
+    p_ TSubExpr TExpr,
+
+    (,) (\[(_,a),_,(_,b)] -> PTFun a b) $
+    p_ TSubExpr TExpr ArrowT TSubExpr,
 
     -- Expr (Sequencing)
     (,) (\[(_,a)] -> a) $
@@ -207,8 +221,14 @@ luminaAnnotatedGrammar = [
     (,) (\[(_,a)] -> PInt a) $
     p_ Atom IntLitT,
 
-    (,) (const POne) $
-    p_ Atom OneT,
+    (,) (const PTrue) $
+    p_ Atom TrueLitT,
+
+    (,) (const PFalse) $
+    p_ Atom FalseLitT,
+
+    (,) (const PUnit) $
+    p_ Atom UnitLitT,
 
     (,) (const PZero) $
     p_ Atom ZeroT,

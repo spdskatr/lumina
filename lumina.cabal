@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Lumina.Frontend.Lexer
+      Lumina.Frontend.LuminaAST
       Lumina.Frontend.LuminaGrammar
       Lumina.Frontend.Parser
       Lumina.Frontend.ParserGen

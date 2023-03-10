@@ -27,7 +27,9 @@ library
   exposed-modules:
       Lumina.Frontend.Lexer
       Lumina.Frontend.LuminaGrammar
+      Lumina.Frontend.Parser
       Lumina.Frontend.ParserGen
+      Lumina.UnsafeUtils
       Lumina.Utils
   other-modules:
       Paths_lumina
@@ -64,6 +66,7 @@ test-suite lumina-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      LuminaGrammarTest
       ParserGenTest
       ToyLanguage1
       ToyLanguage2

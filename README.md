@@ -25,4 +25,4 @@ This is a Haskell project. To compile and run, `stack run`.
 
 ## Specification
 
-Spec writing scheduled for Wednesday.
+Honestly I was going to write a spec here but my language is constantly changing as I figure out what kind of grammar I want and how its operational semantics are going to work. I've clustered most of the grammar stuff in `src/Lumina/Frontend/LuminaGrammar.hs`.

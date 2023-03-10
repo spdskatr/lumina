@@ -1,8 +1,6 @@
 (* Calculate Fibonacci numbers! *)
-with f (x: int) : int = with x case
+with fun fib (x: int) : int = with x case
     | 0 -> 0
     | 1 -> 1
-    | _ -> f (x - 1) + f (x - 2)
-end end
-
-with f (x: int) : int = with x case | 0 -> 0 | 1 -> 1 | _ -> f (x - 1) + f (x - 2) end end
+    | _ -> fib (x - 1) + fib (x - 2)
+end do fib 5 end

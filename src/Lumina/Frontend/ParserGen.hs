@@ -21,7 +21,6 @@ module Lumina.Frontend.ParserGen (
     ppAssocList,
     ppParseTable,
     ppList,
-    preprocessLumina,
     getNullable,
     getFirst,
     itemsFrom,
@@ -31,25 +30,27 @@ module Lumina.Frontend.ParserGen (
 ) where
 
 import Control.Monad (guard, forM_)
-import Data.List (findIndex, nub, elemIndex)
+import Data.List (findIndex, elemIndex, sort)
 import Data.Function (on)
 import Data.List.Extra (enumerate)
 import Data.Ix (Ix(..))
 
-import Lumina.Frontend.Lexer (Token (..), Tag)
-import Lumina.Utils (orElse, update, untilFixedPoint, countUp)
+import qualified Data.Map as Map
 
-newtype NonTerminal n = NonTerminal n deriving (Eq, Show)
+import Lumina.Frontend.Lexer (Tag)
+import Lumina.Utils (orElse, update, untilFixedPoint, countUp, fastNub)
+
+newtype NonTerminal n = NonTerminal n deriving (Eq, Show, Ord)
 data Terminal tt = Tok tt | Epsilon | EndOfInput deriving (Eq, Show, Read)
-data GrammarSymbol n tt = TSymb (Terminal tt) | NTSymb (NonTerminal n) deriving (Eq, Show)
-data Production n tt = Production (NonTerminal n) [GrammarSymbol n tt] deriving (Eq, Show)
+data GrammarSymbol n tt = TSymb (Terminal tt) | NTSymb (NonTerminal n) deriving (Eq, Show, Ord)
+data Production n tt = Production (NonTerminal n) [GrammarSymbol n tt] deriving (Eq, Show, Ord)
 newtype ParseTable n tt a = ParseTable [(GrammarSymbol n tt, a)] deriving (Eq, Show)
-data LR0Item n tt = LR0 (NonTerminal n) [GrammarSymbol n tt] [GrammarSymbol n tt] deriving (Eq, Show)
-data LR1Item n tt = LR1 (LR0Item n tt) (Terminal tt) deriving (Eq, Show)
-data ParseAction = Shift Int | Reduce Int | Accept deriving (Eq, Show, Read)
+data LR0Item n tt = LR0 (NonTerminal n) [GrammarSymbol n tt] [GrammarSymbol n tt] deriving (Eq, Show, Ord)
+data LR1Item n tt = LR1 (LR0Item n tt) (Terminal tt) deriving (Eq, Show, Ord)
+data ParseAction = Shift Int | Reduce Int | Accept deriving (Eq, Show, Read, Ord)
 data LRParser n tt = LRParser [((Int, Terminal tt), ParseAction)] [((Int, n), Int)] deriving (Eq, Read, Show)
 
--- Lumina.Utils for indexing the action table
+-- Utils for indexing the action table
 toInt :: (Tag tt) => Terminal tt -> Int
 toInt Epsilon = 0
 toInt EndOfInput = 1
@@ -84,14 +85,6 @@ ppParseTable (ParseTable x) = ppAssocList x
 ppList :: (Show a) => [a] -> IO ()
 ppList x = forM_ (map show x) putStrLn
 
--- Preprocessing - Filter out all comments and whitespace, add End of Input
-preprocessLumina :: [Token] -> [Terminal Token]
-preprocessLumina []     = [EndOfInput]
-preprocessLumina (x:xs) = case x of
-    Whitespace -> preprocessLumina xs
-    Comment    -> preprocessLumina xs
-    _          -> Tok x : preprocessLumina xs
-
 allTags :: (Tag tt) => [tt]
 allTags = enumerate
 
@@ -118,7 +111,7 @@ initFirst :: (Tag tt) => [(GrammarSymbol n tt, [Terminal tt])]
 initFirst = (TSymb Epsilon, [Epsilon]) : (TSymb EndOfInput, [EndOfInput]) : map (\t -> (TSymb (Tok t), [Tok t])) allTags
 
 iterFirst :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt Bool -> [(GrammarSymbol n tt, [Terminal tt])] -> [(GrammarSymbol n tt, [Terminal tt])]
-iterFirst p nullable firstList = foldl (update (\a b -> nub $ a ++ b)) firstList $ do
+iterFirst p nullable firstList = foldl (update (\a b -> fastNub $ a ++ b)) firstList $ do
     (Production n tl) <- p
     let i = findIndex (\a -> not $ nullable ! a `orElse` False) tl `orElse` length tl
     let res = filter (/= Epsilon) $ concatMap (\s -> lookup s firstList `orElse` []) (take (i+1) tl)
@@ -135,9 +128,9 @@ lookupFirst _     []     = [Epsilon]
 lookupFirst first (x:xs) =
     let someResults = (first ! x `orElse` []) in
         if Epsilon `elem` someResults then
-            nub $ filter (/= Epsilon) someResults ++ lookupFirst first xs
+            fastNub $ filter (/= Epsilon) someResults ++ lookupFirst first xs
         else
-            nub $ filter (/= Epsilon) someResults
+            fastNub $ filter (/= Epsilon) someResults
 
 -- LR(1) CLOSURE
 productionsFor :: (Tag n) => [Production n tt] -> NonTerminal n -> [Production n tt]
@@ -150,7 +143,7 @@ getBeginItems p first a prec = do
     return $ LR1 (LR0 a [] tl) b
 
 stepClosure :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [LR1Item n tt] -> [LR1Item n tt]
-stepClosure p first items = nub $ items ++ do
+stepClosure p first items = fastNub $ items ++ do
     LR1 (LR0 _ _ nx) a <- items
     case nx of
         (NTSymb (NonTerminal n2):xs) -> getBeginItems p first (NonTerminal n2) (xs ++ [TSymb a])
@@ -168,31 +161,34 @@ goto p first items e = closure p first $ do
         _ -> []
 
 -- LR(1) items
+normalise :: (Tag n, Tag tt) => [LR1Item n tt] -> [LR1Item n tt]
+normalise = sort
+
 stepItems :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> ([[LR1Item n tt]], [[LR1Item n tt]]) -> ([[LR1Item n tt]], [[LR1Item n tt]])
 stepItems p first (orig, elems) = (old, new)
     where
-        old = nub $ orig ++ elems
+        old = fastNub $ orig ++ elems
         new = do
             e <- elems
             x <- allGrammarSymbols
             let nx = goto p first e x
             guard $ not (null nx)
             guard $ notElem nx old
-            return nx
+            return $ normalise nx
 
 itemsFrom :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [LR1Item n tt] -> [[LR1Item n tt]]
-itemsFrom p first e = fst $ untilFixedPoint (stepItems p first) ([], [e])
+itemsFrom p first e = fst $ untilFixedPoint (stepItems p first) ([], [normalise e])
 
 -- LR(1) parse table generator
 -- Code assumes that the first state in the list of items is the start state.
 generateAction :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [[LR1Item n tt]] -> NonTerminal n -> [((Int, Terminal tt), ParseAction)]
-generateAction p first states start = nub $ do
+generateAction p first states start = fastNub $ do
     (ind, state) <- countUp states
     (LR1 (LR0 n hd tl) la) <- state
     case tl of
         TSymb (Tok tag) : _ -> do
-            let nx = goto p first state (TSymb (Tok tag))
-            case elemIndex nx states of
+            let nx = normalise $ goto p first state (TSymb (Tok tag))
+            case Map.lookup nx lookupTable of
                 Just i -> return ((ind, Tok tag), Shift i)
                 Nothing -> if null nx then [] else error $ "Internal parser error, state " ++ show nx ++ " not found"
         [] -> do
@@ -202,15 +198,19 @@ generateAction p first states start = nub $ do
             else
                 return ((ind, EndOfInput), Accept)
         _ -> []
+    where
+        lookupTable = foldl (\m (v, k) -> Map.insert k v m) Map.empty $ countUp states
 
 generateGoto :: (Tag tt, Tag n) => [Production n tt] -> ParseTable n tt [Terminal tt] -> [[LR1Item n tt]] -> [((Int, n), Int)]
-generateGoto p first states = nub $ do
+generateGoto p first states = fastNub $ do
     (ind, state) <- countUp states
     a <- allTags
-    let res = goto p first state (NTSymb $ NonTerminal a)
-    case elemIndex res states of
+    let res = normalise $ goto p first state (NTSymb $ NonTerminal a)
+    case Map.lookup res lookupTable of
         Just i -> return ((ind, a), i)
         Nothing -> if null res then [] else error $ "Internal parser error, state " ++ show res ++ " not found"
+    where
+        lookupTable = foldl (\m (v, k) -> Map.insert k v m) Map.empty $ countUp states
 
 -- generateParser assumes the starting production is the first one in the list.
 generateParser :: (Tag tt, Tag n) => [Production n tt] -> LRParser n tt
@@ -221,4 +221,4 @@ generateParser p =
         first = getFirst p (getNullable p)
         myItems = itemsFrom p first (closure p first [LR1 (LR0 (NonTerminal start) [] tl) EndOfInput])
 
--- TODO: LALR(1) some day
+-- LALR(1)... some day...

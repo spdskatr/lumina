@@ -1,0 +1,34 @@
+2 + 3
+
+2 + 3 * 5 + 6
+
+(2 + 3) * 5
+
+(fun (x : int) : int -> 5 end) 3
+
+with fun f(x:int) : int = 5 do f 4 end
+
+with 5 case | _ -> 2 end
+
+with 5 case | 0 -> 0 | 1 -> 1 | 2 -> 3 + 5 * 6 | _ -> 2 end
+
+with fun fib (x: int) : int = with x case | 0 -> 0 | 1 -> 1 | _ -> fib (x - 1) + fib (x - 2) end do fib 5 end
+
+a := 0; b := 1; n := 5; while 0 < n do n := n - 1; c := a; a := b; b := b + c end
+
+with a : int # = # 0 do a := 1; !a end
+
+with a : int # = # 0 do
+    with b : int # = # 1 do
+        with c : int # = # 2 do
+            with n : int # = # 5 do
+                while 4 - 2 * 2 < n do
+                    n := n - 1;
+                    c := a;
+                    a := b;
+                    b := b + c
+                end
+            end
+        end
+    end
+end

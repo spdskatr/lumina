@@ -7,15 +7,15 @@ Lumina is a functional programming language designed with each keyword having a 
 For example, the following code
 ```
 (* Calculate Fibonacci numbers! *)
-with f (x: int) : int = with x case
+with fun fib (x: int) : int = with x case
     | 0 -> 0
     | 1 -> 1
-    | _ -> f (x - 1) + f (x - 2)
-end end
+    | _ -> fib (x - 1) + fib (x - 2)
+end do fib 5 end
 ```
 when minified, looks like
 ```
-α f ( x : ◻ ) : ◻ = α x ↦ | 0 → 0 | 1 → 1 | _ → f ( x - 1 ) + f ( x - 2 ) ω ω
+α λ f ( x : ◻ ) : ◻ = α x ↦ | 0 → 0 | 1 → 1 | _ → f ( x - 1 ) + f ( x - 2 ) ω β f 5 ω
 ```
 the choices for character are quite arbitrary and I haven't fully decided on them yet.
 

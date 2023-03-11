@@ -9,21 +9,12 @@ module Lumina.Frontend.LuminaAST (
 
 import Lumina.Frontend.LuminaGrammar (PAST (..))
 import Data.Map (Map)
-import Data.Ix (Ix)
 import Lumina.Utils (internalError)
 import Lumina.Frontend.Lexer (Token(..))
 import Control.Monad (liftM2)
 
 import qualified Data.Map as Map
 
-newtype StoreAddress = Store Int deriving (Show, Eq, Ord, Ix)
-
-data StoreVar
-    = IntVar Int
-    | BoolVar Bool
-    | UnitVar
-    | RefVar StoreAddress
-    | FunVar ((StoreVar, StoreAddress) -> (StoreVar, StoreAddress))
 
 data ASTType
     = TInt

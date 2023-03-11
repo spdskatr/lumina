@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 module Lumina.Frontend.Parser (
     LRParserArray(..),
     ParserState(..),
@@ -56,7 +57,7 @@ makeNodeByReduction lr i = getReduction lr ! i
 
 fillInParallel :: (Ord a) => [a] -> [(a,b)] -> [(a,Maybe b)]
 fillInParallel [] xs = map (fmap Just) xs
-fillInParallel xs [] = map (\a -> (a, Nothing)) xs
+fillInParallel xs [] = map (, Nothing) xs
 fillInParallel (x:xs) (y:ys) =
     if x < fst y then
         (x, Nothing) : fillInParallel xs (y:ys)
@@ -66,7 +67,6 @@ fillInParallel (x:xs) (y:ys) =
 -- Convert data to array for fast access
 fillBlanks :: (Ix a, Ord b) => a -> a -> [(a,b)] -> [(a,Maybe b)]
 fillBlanks lo up res = fillInParallel (range (lo,up)) (sort res)
-    where
 
 toArray :: (Ix a, Ix b, Ord c) => [((a,b), c)] -> Array (a,b) (Maybe c)
 toArray a = array ((mina, minb), (maxa, maxb)) $ fillBlanks (mina, minb) (maxa, maxb) a

@@ -6,8 +6,7 @@ import Lumina.Frontend.Lexer (TokenTag, getAllTokensLumina)
 import Lumina.Frontend.ParserGen (generateParser, LRParser (LRParser))
 import Lumina.Frontend.LuminaGrammar (luminaGrammar, LNT(..))
 import Lumina.Utils (hasDuplicates)
-import Lumina.Frontend.Parser (toParserArray, preprocessLumina, producePAST)
-import Lumina.Frontend.LuminaAST (toAST)
+import Lumina.Frontend.Parser (preprocessLumina)
 import Lumina.Frontend.Shortcuts (getAST)
 
 -- WARNING - this may take several minutes to run

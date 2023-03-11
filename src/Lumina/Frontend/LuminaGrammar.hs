@@ -9,8 +9,8 @@ module Lumina.Frontend.LuminaGrammar (
     luminaReduceActions
 ) where
 
-import Lumina.Frontend.Lexer (Tag, TokenTag(..), Token)
-import Lumina.Frontend.ParserGen (Production(..), NonTerminal(..), GrammarSymbol(..), Terminal(..))
+import Lumina.Frontend.Lexer (Tag, TokenTag (..), Token)
+import Lumina.Frontend.ParserGen (Production (..), NonTerminal (..), GrammarSymbol (..), Terminal (..))
 import Lumina.Utils (internalError)
 import Data.Ix (Ix)
 
@@ -26,6 +26,7 @@ data LNT
     | Atom
     | TExpr
     | TSubExpr
+    | EndBlock
     | CaseList deriving (Show, Bounded, Eq, Enum, Ord, Ix, Read)
 
 instance Tag LNT
@@ -189,12 +190,13 @@ luminaAnnotatedGrammar = [
     (,) (\[_,(_,a)] -> PRef a) $
     p_ CExpr RefT Atom,
 
+    -- CExpr (Application)
     (,) (\[(_,a),(_,b)] -> PApp a b) $
     p_ CExpr CExpr Atom,
 
     -- CaseList
     (,) (\l -> PCaseList [(l!1,l!3)]) $
-    p_ CaseList BarT Expr ArrowT Expr EndT,
+    p_ CaseList BarT Expr ArrowT Expr EndBlock,
 
     (,) (\[_,(_,c),_,(_,e),(_,PCaseList l)] -> PCaseList ((c,e):l)) $
     p_ CaseList BarT Expr ArrowT Expr CaseList,
@@ -204,16 +206,16 @@ luminaAnnotatedGrammar = [
     p_ Atom WithT Expr CaseT CaseList,
 
     (,) (\l -> PFun (l!2) (l!4) (l!7) (l!9)) $
-    p_ Atom FunT LParenT IdentT ColonT TExpr RParenT ColonT TExpr ArrowT Expr EndT,
+    p_ Atom FunT LParenT IdentT ColonT TExpr RParenT ColonT TExpr ArrowT Expr EndBlock,
 
     (,) (\l -> PLet (l!1) (l!3) (l!5) (l!7)) $
-    p_ Atom WithT IdentT ColonT TExpr EqualT Expr DoT Expr EndT,
+    p_ Atom WithT IdentT ColonT TExpr EqualT Expr DoT Expr EndBlock,
 
     (,) (\l -> PLetFun (l!2) (l!4) (l!6) (l!9) (l!11) (l!13)) $
-    p_ Atom WithT FunT IdentT LParenT IdentT ColonT TExpr RParenT ColonT TExpr EqualT Expr DoT Expr EndT,
+    p_ Atom WithT FunT IdentT LParenT IdentT ColonT TExpr RParenT ColonT TExpr EqualT Expr DoT Expr EndBlock,
 
     (,) (\l -> PWhile (l!1) (l!3)) $
-    p_ Atom WhileT Expr DoT Expr EndT,
+    p_ Atom WhileT Expr DoT Expr EndBlock,
 
     (,) (\[_,(_,a),_] -> a) $
     p_ Atom LParenT Expr RParenT,
@@ -234,5 +236,12 @@ luminaAnnotatedGrammar = [
     p_ Atom ZeroT,
 
     (,) (\[(_,a)] -> PVar a) $
-    p_ Atom IdentT
+    p_ Atom IdentT,
+
+    -- EndBlock (To absorb semicolons)
+    (,) (\[_] -> PTUnit) $
+    p_ EndBlock EndT,
+
+    (,) (\[_,_] -> PTUnit) $
+    p_ EndBlock SemicolonT EndT
     ]

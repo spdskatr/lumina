@@ -153,17 +153,12 @@ translate env past = case past of
         (a2,t2) <- translate env pa'
         t <- applyType t1 t2
         return (AApp a1 a2, t)
-    PNot pa -> do
-        (a1,t1) <- translate env pa
-        if t1 == TBool then
-            return (AUnaryOp OpNot a1, TBool)
-        else
-            typeError ("Mismatched type for not: " ++ show t1)
     PBang pa -> do
         (a1, t1) <- translate env pa
         case t1 of
             TRef x -> return (AUnaryOp OpBang a1, x)
-            _ -> typeError ("Mismatched type for dereference: " ++ show t1)
+            TBool -> return (AUnaryOp OpNot a1, TBool)
+            _ -> typeError ("Mismatched type for ! (should be bool or reference): " ++ show t1)
     PRef pa -> do
         (a1, t1) <- translate env pa
         return (AUnaryOp OpRef a1, TRef t1)
@@ -211,9 +206,9 @@ translate env past = case past of
         return (AAssign a1 a2, t)
     PWhile pa pa' -> do
         (a1,t1) <- translate env pa
-        (a2,t2) <- translate env pa'
+        (a2,_) <- translate env pa'
         if t1 == TBool then 
-            return (AWhile a1 a2, t2)
+            return (AWhile a1 a2, TUnit)
         else 
             typeError ("Expected boolean type for expression to while; got " ++ show t1 ++ " instead")
     PSeq pa pa' -> do

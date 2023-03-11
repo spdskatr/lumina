@@ -11,7 +11,7 @@ module Lumina.Frontend.Parser (
 import Lumina.Frontend.ParserGen (ParseAction (..), Terminal (..), LRParser (..), Production (..), NonTerminal (..))
 import Lumina.Frontend.Lexer (TokenTag, Token (..), getTag)
 import Lumina.Frontend.LuminaGrammar (LNT, PAST (..), luminaReduceActions, luminaGrammar)
-import Lumina.Utils (headMaybe, orElse, internalError)
+import Lumina.Utils (headMaybe, orElse, internalError, parseError)
 
 import Control.Monad.Trans.State (State, get, modify, evalState)
 import Data.Array (Array, array, listArray, (!))
@@ -41,12 +41,12 @@ data ParserState = ParserState [(Int, PAST)] [Token] deriving (Show, Eq)
 
 (<~>) :: LRParserArray -> (Int, Term) -> ParseAction
 lr <~> i = case getAction lr ! i of
-    Nothing -> internalError $ "Tried to ACTION " ++ show i ++ " but it doesn't exist."
+    Nothing -> parseError $ "Tried to ACTION " ++ show i ++ " but it doesn't exist."
     Just k -> k
 
 lookupGoto :: LRParserArray -> (Int, LNT) -> Int
 lookupGoto lr i = case getGoto lr ! i of
-    Nothing -> internalError $ "Tried to GOTO " ++ show i ++ " but it doesn't exist."
+    Nothing -> parseError $ "Tried to GOTO " ++ show i ++ " but it doesn't exist."
     Just k -> k
 
 (?) :: LRParserArray -> Int -> Prod

@@ -40,7 +40,6 @@ data PAST
     | PVar PAST
     | PInt PAST
     | PApp PAST PAST
-    | PNot PAST
     | PBang PAST
     | PRef PAST
     | PMul PAST PAST
@@ -177,22 +176,19 @@ luminaAnnotatedGrammar = [
     (,) (\[(_,a),_,(_,b)] -> PMul a b) $
     p_ BExpr BExpr MulT CExpr,
 
+    -- BExpr (Application)
+    (,) (\[(_,a),(_,b)] -> PApp a b) $
+    p_ BExpr BExpr CExpr,
+
     -- CExpr (Unary)
     (,) (\[(_,a)] -> a) $
     p_ CExpr Atom,
-
-    (,) (\[_,(_,a)] -> PNot a) $
-    p_ CExpr NotT Atom,
 
     (,) (\[_,(_,a)] -> PBang a) $
     p_ CExpr BangT Atom,
 
     (,) (\[_,(_,a)] -> PRef a) $
     p_ CExpr RefT Atom,
-
-    -- CExpr (Application)
-    (,) (\[(_,a),(_,b)] -> PApp a b) $
-    p_ CExpr CExpr Atom,
 
     -- CaseList
     (,) (\l -> PCaseList [(l!1,l!3)]) $

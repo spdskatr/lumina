@@ -7,7 +7,7 @@ import Lumina.Frontend.ParserGen (generateParser, LRParser (LRParser))
 import Lumina.Frontend.LuminaGrammar (luminaGrammar, LNT(..))
 import Lumina.Utils (hasDuplicates)
 import Lumina.Frontend.Parser (preprocessLumina)
-import Lumina.Frontend.Shortcuts (getAST)
+import Lumina.Frontend.Shortcuts (getAST, eval)
 
 -- WARNING - this may take several minutes to run
 genAndPrintLR1Parser :: IO ()
@@ -38,12 +38,21 @@ demoParser = do
     putStrLn $ show a
     putStrLn $ "Type: " ++ show t
 
+demoInterpreter :: IO ()
+demoInterpreter = do
+    pars <- loadParserFrom "data/lr1.txt"
+    putStrLn "Enter Lumina code and I'll interpret it. Press CTRL-D when you're done."
+    inp <- getContents
+    let (v,t) = eval pars inp
+    putStrLn $ show v ++ " : " ++ show t
+
 main :: IO ()
 main = do
-    putStrLn "Options:\n 1 - Recompile parse tables\n 2 - Demo parser using existing parse table in data/lr1.txt\n 3 - Demo lexer"
+    putStrLn "Options:\n 1 - Recompile parse tables\n 2 - Demo lexer\n 3 - Demo parser + type checker using existing parse table\n 4 - Demo interpreter using existing parse table"
     i <- readLn :: IO Int
     case i of
         1 -> genAndPrintLR1Parser
-        2 -> demoParser
-        3 -> demoLexer
+        2 -> demoLexer
+        3 -> demoParser
+        4 -> demoInterpreter
         _ -> error $ "Unrecognised option " ++ show i

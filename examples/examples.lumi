@@ -10,27 +10,37 @@ with fun f(x:int) : int = 5 do f 4 end
 
 with 5 case | _ -> 2 end
 
-with 5 case | 0 -> 0 | 1 -> 1 | 2 -> 3 + 5 * 6 | _ -> 2 end
+with 5 case | 0 -> 0 | 1 -> 1 | 2 -> 3 + 5 * 6 | _ -> _ + 2 end
 
-with fun fib (x: int) : int = with x case | 0 -> 0 | 1 -> 1 | _ -> fib (x - 1) + fib (x - 2) end do fib 5 end
+with fun fib (x: int) : int = with x case | 0 -> 0 | 1 -> 1 | _ -> fib (x - 1) + fib (x - 2) end do fib 6 end
 
-a := 0; b := 1; n := 5; while 0 < n do n := n - 1; c := a; a := b; b := b + c end
-
-with a : int # = # 0 do a := 1; !a; a + 1 end
+with a : int # = # 0 do a := 1; !a + 1 end
 
 with a : int # = # 0 do
     with b : int # = # 1 do
         with c : int # = # 2 do
             with n : int # = # 5 do
-                while ~(!n = 0) do
+                while !(!n = 0) do
                     n := !n - 1;
                     c := !a;
                     a := !b;
                     b := !b + !c;
                 end
             end
-        end
+        end; !b
     end
 end
 
 with f : (int -> int -> int) = fun (x : int) : (int -> int) -> fun (y : int) : int -> x + y end end do f 3 5 end
+
+with fun fact (x : int) : int = with x case | 0 -> 1 | _ -> fact (x - 1) * x end do fact 5 end
+
+with fun m (n : int) : int = 
+    with n < 101 case | true -> m (m (n + 11)) | false -> n - 10 end
+do
+    with a : int # = # 0 do
+        while m !a = 91 do
+            a := !a + 1
+        end; !a
+    end
+end

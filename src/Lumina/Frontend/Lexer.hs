@@ -58,7 +58,6 @@ data Token
     | OrOp
     | Bar
     | Arrow
-    | Not
     | Equal
     | Fun
     | With
@@ -96,7 +95,6 @@ data TokenTag
     | OrOpT
     | BarT
     | ArrowT
-    | NotT
     | EqualT
     | FunT
     | WithT
@@ -136,7 +134,6 @@ instance Taggable Token TokenTag where
         OrOp       -> OrOpT
         Bar        -> BarT
         Arrow      -> ArrowT
-        Not        -> NotT
         Equal      -> EqualT
         Fun        -> FunT
         With       -> WithT
@@ -264,7 +261,6 @@ tokenDefs = [
     matchString_ OrOp "||",
     matchString_ Bar "|",
     matchString_ Arrow "->",
-    matchString_ Not "~", -- TODO: Unify this token with ! and then resolve type checking
     matchString_ Equal "=",
     matchString_ Fun "fun",
     matchString_ With "with",

@@ -6,6 +6,8 @@ module Lumina.Utils (
     hasDuplicates,
     findDuplicateGroups,
     internalError,
+    interpError,
+    parseError,
     fastNub,
     headMaybe
 ) where
@@ -42,3 +44,9 @@ countUp = zip [0..]
 
 internalError :: String -> a
 internalError msg = error ("Internal compiler error: " ++ msg)
+
+interpError :: String -> a
+interpError msg = error ("Interpreter error: " ++ msg)
+
+parseError :: String -> a
+parseError msg = error ("Parse error: " ++ msg)

@@ -7,7 +7,8 @@ import Lumina.Frontend.ParserGen (generateParser, LRParser (LRParser))
 import Lumina.Frontend.LuminaGrammar (luminaGrammar, LNT(..))
 import Lumina.Utils (hasDuplicates)
 import Lumina.Frontend.Parser (preprocessLumina)
-import Lumina.Frontend.Shortcuts (getAST, eval)
+import Lumina.Frontend.Shortcuts (getAST)
+import Lumina.Interpreter.SemanticInterpreter (eval)
 
 -- WARNING - this may take several minutes to run
 genAndPrintLR1Parser :: IO ()

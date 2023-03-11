@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use print" #-}
 module Main (main) where
 
 import Lumina.Frontend.Lexer (TokenTag, getAllTokensLumina)
@@ -5,6 +7,8 @@ import Lumina.Frontend.ParserGen (generateParser, LRParser (LRParser))
 import Lumina.Frontend.LuminaGrammar (luminaGrammar, LNT(..))
 import Lumina.Utils (hasDuplicates)
 import Lumina.Frontend.Parser (toParserArray, preprocessLumina, producePAST)
+import Lumina.Frontend.LuminaAST (toAST)
+import Lumina.Frontend.Shortcuts (getAST)
 
 -- WARNING - this may take several minutes to run
 genAndPrintLR1Parser :: IO ()
@@ -29,12 +33,11 @@ demoLexer = do
 demoParser :: IO ()
 demoParser = do
     pars <- loadParserFrom "data/lr1.txt"
-    let parseInfo = toParserArray pars
     putStrLn "Enter Lumina code and I'll parse it. Press CTRL-D when you're done."
     inp <- getContents
-    let toks = preprocessLumina $ getAllTokensLumina inp
-    print $ producePAST toks parseInfo
-    putStrLn ""
+    let (a,t) = getAST pars inp
+    putStrLn $ show a
+    putStrLn $ "Type: " ++ show t
 
 main :: IO ()
 main = do

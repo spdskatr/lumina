@@ -30,6 +30,7 @@ library
       Lumina.Frontend.LuminaGrammar
       Lumina.Frontend.Parser
       Lumina.Frontend.ParserGen
+      Lumina.Frontend.Shortcuts
       Lumina.UnsafeUtils
       Lumina.Utils
   other-modules:

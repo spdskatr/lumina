@@ -16,21 +16,21 @@ with fun fib (x: int) : int = with x case | 0 -> 0 | 1 -> 1 | _ -> fib (x - 1) +
 
 a := 0; b := 1; n := 5; while 0 < n do n := n - 1; c := a; a := b; b := b + c end
 
-with a : int # = # 0 do a := 1; !a end
+with a : int # = # 0 do a := 1; !a; a + 1 end
 
 with a : int # = # 0 do
     with b : int # = # 1 do
         with c : int # = # 2 do
             with n : int # = # 5 do
-                while 4 - 2 * 2 < n do
-                    n := n - 1;
-                    c := a;
-                    a := b;
-                    b := b + c
+                while ~(!n = 0) do
+                    n := !n - 1;
+                    c := !a;
+                    a := !b;
+                    b := !b + !c
                 end
             end
         end
     end
 end
 
-with f : (int -> int -> int) = fun (x : int) : int -> fun (y : int) : int -> x + y end end do f 3 5 end
+with f : (int -> int -> int) = fun (x : int) : (int -> int) -> fun (y : int) : int -> x + y end end do f 3 5 end

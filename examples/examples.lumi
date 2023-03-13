@@ -44,3 +44,22 @@ do
         end; !a
     end
 end
+
+with fun sqrt (x : int) : int = 
+    with fun sqrtHelper (x : int) : (int -> int) = 
+        fun (y : int) : int -> 
+            with z : int = 2 * y - 1 do
+                with z < x+1 case
+                | true -> sqrtHelper (x-z) (y+1)
+                | false -> y-1
+                end
+            end
+        end 
+    do
+        sqrtHelper x 1
+    end
+do sqrt 60 end
+
+with 4 case | 5 -> 2 | x -> 4 end
+
+fun (f : (int -> int)) : int -> f 2 + f 3 end

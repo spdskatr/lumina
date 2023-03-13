@@ -2,13 +2,14 @@
 {-# HLINT ignore "Use print" #-}
 module Main (main) where
 
-import Lumina.Frontend.Lexer (TokenTag, getAllTokensLumina)
+import Lumina.Frontend.Lexer (getAllTokensLumina)
 import Lumina.Frontend.ParserGen (generateParser, LRParser (LRParser))
-import Lumina.Frontend.LuminaGrammar (luminaGrammar, LNT(..))
+import Lumina.Frontend.LuminaGrammar (luminaGrammar)
 import Lumina.Utils (hasDuplicates)
 import Lumina.Frontend.Parser (preprocessLumina)
-import Lumina.Frontend.Shortcuts (getAST)
-import Lumina.Interpreter.SemanticInterpreter (eval)
+import Lumina.Frontend.Shortcuts (getAST, loadParserFrom)
+import Lumina.Interpreter.SemanticInterpreter (eval, getValue)
+import Lumina.Middleend.CPSConvert (toCPS)
 
 -- WARNING - this may take several minutes to run
 genAndPrintLR1Parser :: IO ()
@@ -20,9 +21,6 @@ genAndPrintLR1Parser = do
     else
         putStrLn $ "Total number of states: " ++ show (maximum $ map (fst . fst) action);
         putStrLn "Written new parser to lr1.txt. Copy it over to data/lr1.txt when you want to test it."
-
-loadParserFrom :: String -> IO (LRParser LNT TokenTag)
-loadParserFrom = fmap read . readFile
 
 demoLexer :: IO ()
 demoLexer = do
@@ -47,13 +45,38 @@ demoInterpreter = do
     let (v,t) = eval pars inp
     putStrLn $ show v ++ " : " ++ show t
 
+demoCPS :: IO ()
+demoCPS = do
+    pars <- loadParserFrom "data/lr1.txt"
+    putStrLn "Enter Lumina code and I'll CPS it. Press CTRL-D when you're done."
+    inp <- getContents
+    let (a,t) = getAST pars inp
+    putStrLn $ show $ toCPS a
+    putStrLn $ "Type: " ++ show t
+
+demoInterpreterCPS :: IO ()
+demoInterpreterCPS = do
+    pars <- loadParserFrom "data/lr1.txt"
+    putStrLn "Enter Lumina code and I'll interpret it. Press CTRL-D when you're done."
+    inp <- getContents
+    let (a,t) = getAST pars inp
+    let v = getValue $ toCPS a
+    putStrLn $ show v ++ " : " ++ show t
+
 main :: IO ()
 main = do
-    putStrLn "Options:\n 1 - Recompile parse tables\n 2 - Demo lexer\n 3 - Demo parser + type checker using existing parse table\n 4 - Demo interpreter using existing parse table"
+    putStrLn "Options:\n 1 - Recompile parse tables\n\
+    \ 2 - Demo lexer\n\
+    \ 3 - Demo parser + type checker\n\
+    \ 4 - Demo interpreter\n\
+    \ 5 - Demo CPS\n\
+    \ 6 - Demo interpreter with CPS"
     i <- readLn :: IO Int
     case i of
         1 -> genAndPrintLR1Parser
         2 -> demoLexer
         3 -> demoParser
         4 -> demoInterpreter
+        5 -> demoCPS
+        6 -> demoInterpreterCPS
         _ -> error $ "Unrecognised option " ++ show i

@@ -15,7 +15,6 @@ import Control.Monad (liftM2)
 
 import qualified Data.Map as Map
 
-
 data ASTType
     = TInt
     | TBool
@@ -52,14 +51,31 @@ data AST
     | AUnaryOp UnaryOp AST
     | ABinaryOp BinaryOp AST AST
     | AAssign AST AST
-    | ACase AST [(AST, AST)]
+    | AEmptyCase AST
+    | AIf AST AST AST
     | AFun String AST
     | ALetFun String String AST AST
     | AWhile AST AST
-    | ASeq [AST]
-    deriving (Eq, Show)
+    | ASeq AST AST
+    deriving (Eq)
 
 type TranslationRes a = Either String a
+
+instance Show AST where
+    show (ABool b) = show b
+    show (AInt i) = show i
+    show AUnit = show "()"
+    show (AVar s) = s
+    show (AApp a b) = "(" ++ show a ++ " " ++ show b ++ ")"
+    show (AUnaryOp uo a) = show uo ++ "(" ++ show a ++ ")"
+    show (ABinaryOp bo a b) = "(" ++ show a ++ " " ++ show bo ++ " " ++ show b ++ ")"
+    show (AAssign a b) = show a ++ " := " ++ show b
+    show (AEmptyCase a) = "EmptyCase"
+    show (AIf a b c) = "if " ++ show a ++ " then " ++ show b ++ " else " ++ show c ++  " end"
+    show (AFun s b) = "fun " ++ show s ++ ": " ++ show b ++ " end"
+    show (ALetFun f x a b) = "let fun " ++ f ++ " " ++ x ++ " = " ++ show a ++ " in " ++ show b ++ " end"
+    show (AWhile c l) = "while " ++ show c ++ " do " ++ show l ++ " end"
+    show (ASeq a b) = show a ++ "; " ++ show b
 
 typeError :: String -> TranslationRes a
 typeError s = Left $ "Type error: " ++ s
@@ -97,44 +113,35 @@ getType (PTRef x) = TRef <$> getType x
 getType (PTFun x y) = liftM2 TFun (getType x) (getType y)
 getType x = typeError ("Expression is not a type: " ++ show x)
 
-isEquatable :: ASTType -> ASTType -> Bool
-isEquatable TInt TInt = True
-isEquatable TBool TBool = True
-isEquatable _ _ = False
-
 getEqualsOp :: ASTType -> ASTType -> Maybe BinaryOp
 getEqualsOp TInt TInt = Just OpIntEqual
 getEqualsOp TBool TBool = Just OpBoolEqual
 getEqualsOp _ _ = Nothing
 
-makeCases :: (AST, ASTType) -> TypeEnv -> [(PAST, PAST)] -> TranslationRes (AST, ASTType)
+makeCases :: (String, ASTType) -> TypeEnv -> [(PAST, PAST)] -> TranslationRes (AST, ASTType)
 makeCases _ _ [] = typeError "No matches in case expression"
-makeCases (a,t) env [(pa,pb)] =
+makeCases (s,t) env [(pa,pb)] =
     case pa of
         PVar (PToken (Ident x)) | Map.notMember x env -> do
             let newEnv = Map.insert x t env
             (a2,t2) <- translate newEnv pb
-            return (ACase a [(AVar x,a2)], t2)
+            return (AApp (AFun x a2) (AVar s), t2)
         _ -> do
             (a1,t1) <- translate env pa
             (a2,t2) <- translate env pb
-            if isEquatable t t1 then 
-                return (ACase a [(a1,a2)], t2) 
-            else 
-                typeError ("Case split expecting equatable types, got types " ++ show (t, t1) ++ " instead")
-makeCases (a,t) env ((pa,pb):rest) = do
+            case getEqualsOp t t1 of
+                Just op -> return (AIf (ABinaryOp op (AVar s) a1) a2 (AEmptyCase (AVar s)), t2)
+                Nothing -> typeError ("Case split expecting equatable types, got types " ++ show (t, t1) ++ " instead")
+makeCases (s,t) env ((pa,pb):rest) = do
     (a1,t1) <- translate env pa
     (a2,t2) <- translate env pb
-    (aa,t') <- makeCases (a,t) env rest
-    case aa of
-        ACase _ other -> 
-            if not $ isEquatable t t1 then 
-                typeError ("Case split expecting equatable types, got types " ++ show (t, t1) ++ " instead")
-            else if t2 /= t' then 
-                typeError ("Result types of case split must be equal, got types " ++ show (t2, t') ++ " instead")
-            else 
-                return (ACase a ((a1,a2):other), t2)
-        _ -> typeError "This should literally never happen..."
+    (aa,t') <- makeCases (s,t) env rest
+    case getEqualsOp t t1 of
+        Nothing -> typeError ("Case split expecting equatable types, got types " ++ show (t, t1) ++ " instead")
+        Just op -> if t2 /= t' then 
+            typeError ("Result types of case split must be equal, got types " ++ show (t2, t') ++ " instead")
+        else 
+            return (AIf (ABinaryOp op (AVar s) a1) a2 aa, t2)
 
 translate :: TypeEnv -> PAST -> TranslationRes (AST, ASTType)
 translate env past = case past of
@@ -214,9 +221,7 @@ translate env past = case past of
     PSeq pa pa' -> do
         (a1,_) <- translate env pa
         (a2,t2) <- translate env pa'
-        case a1 of
-            ASeq l -> return (ASeq (l ++ [a2]), t2)
-            _ -> return (ASeq [a1, a2], t2)
+        return (ASeq a1 a2, t2)
     PFun (PToken (Ident x)) ta ta' pa' -> do
         inType <- getType ta
         let newEnv = Map.insert x inType env
@@ -251,7 +256,8 @@ translate env past = case past of
             typeError ("Expected type " ++ show outType ++ " in body of function " ++ f ++ ", got " ++ show t1 ++ " instead")
     PCase pa (PCaseList l) -> do
         (a1,t1) <- translate env pa
-        makeCases (a1,t1) env l
+        (a2,t2) <- makeCases ("0case",t1) env l
+        return (AApp (AFun "0case" a2) a1, t2)
     PCaseList _ -> internalError "Found lonely CaseList"
     _ -> internalError $ "Bad PAST: " ++ show past
 

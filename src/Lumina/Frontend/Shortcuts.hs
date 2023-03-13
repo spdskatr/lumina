@@ -1,4 +1,4 @@
-module Lumina.Frontend.Shortcuts (getAST) where
+module Lumina.Frontend.Shortcuts (getAST, loadParserFrom) where
 
 import Lumina.Frontend.ParserGen (LRParser)
 import Lumina.Frontend.LuminaGrammar (LNT)
@@ -12,3 +12,6 @@ getAST lr code =
     let parseInfo = toParserArray lr
         toks = preprocessLumina $ getAllTokensLumina code
     in toAST $ producePAST toks parseInfo
+
+loadParserFrom :: String -> IO (LRParser LNT TokenTag)
+loadParserFrom = fmap read . readFile

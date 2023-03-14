@@ -4,12 +4,15 @@ module Lumina.Frontend.LuminaAST (
     BinaryOp (..),
     UnaryOp (..),
     AST (..),
-    toAST
+    toAST,
+    freeVars,
+    (>:=),
+    (><>)
 ) where
 
 import Lumina.Frontend.LuminaGrammar (PAST (..))
 import Data.Map (Map)
-import Lumina.Utils (internalError)
+import Lumina.Utils (internalError, fastNub, orElse)
 import Lumina.Frontend.Lexer (Token(..))
 import Control.Monad (liftM2)
 
@@ -51,7 +54,7 @@ data AST
     | AUnaryOp UnaryOp AST
     | ABinaryOp BinaryOp AST AST
     | AAssign AST AST
-    | AEmptyCase AST
+    | AEmptyCase
     | AIf AST AST AST
     | AFun String AST
     | ALetFun String String AST AST
@@ -70,12 +73,49 @@ instance Show AST where
     show (AUnaryOp uo a) = show uo ++ "(" ++ show a ++ ")"
     show (ABinaryOp bo a b) = "(" ++ show a ++ " " ++ show bo ++ " " ++ show b ++ ")"
     show (AAssign a b) = show a ++ " := " ++ show b
-    show (AEmptyCase a) = "EmptyCase"
+    show AEmptyCase = "EmptyCase"
     show (AIf a b c) = "if " ++ show a ++ " then " ++ show b ++ " else " ++ show c ++  " end"
-    show (AFun s b) = "fun " ++ show s ++ ": " ++ show b ++ " end"
+    show (AFun s b) = "fun " ++ s ++ ": " ++ show b ++ " end"
     show (ALetFun f x a b) = "let fun " ++ f ++ " " ++ x ++ " = " ++ show a ++ " in " ++ show b ++ " end"
     show (AWhile c l) = "while " ++ show c ++ " do " ++ show l ++ " end"
     show (ASeq a b) = show a ++ "; " ++ show b
+
+-- Recursively transform the AST by providing a pattern match procedure.
+-- The recursion stops as soon as an update is found.
+(>:=) :: (AST -> Maybe AST) -> AST -> AST
+f >:= ast = f ast `orElse` case ast of
+    ABool _ -> ast
+    AInt _ -> ast
+    AUnit -> ast
+    AVar _ -> ast
+    AApp ast' ast2 -> AApp (f >:= ast') (f >:= ast2)
+    AUnaryOp uo ast' -> AUnaryOp uo (f >:= ast')
+    ABinaryOp bo ast' ast2 -> ABinaryOp bo (f >:= ast') (f >:= ast2)
+    AAssign ast' ast2 -> AAssign (f >:= ast') (f >:= ast2)
+    AEmptyCase -> AEmptyCase
+    AIf ast' ast2 ast3 -> AIf (f >:= ast') (f >:= ast2) (f >:= ast3)
+    AFun s ast' -> AFun s (f >:= ast')
+    ALetFun s str ast' ast2 -> ALetFun s str (f >:= ast') (f >:= ast2)
+    AWhile ast' ast2 -> AWhile (f >:= ast') (f >:= ast2)
+    ASeq ast' ast2 -> ASeq (f >:= ast') (f >:= ast2)
+
+-- Recursively fold over a single level of the AST.
+(><>) :: (Monoid m) => (AST -> m) -> AST -> m
+f ><> ast = case ast of
+    ABool _ -> mempty
+    AInt _ -> mempty
+    AUnit -> mempty
+    AVar _ -> mempty
+    AApp ast' ast2 -> f ast' <> f ast2
+    AUnaryOp _ ast' -> f ast'
+    ABinaryOp _ ast' ast2 -> f ast' <> f ast2
+    AAssign ast' ast2 -> f ast' <> f ast2
+    AEmptyCase -> mempty
+    AIf ast' ast2 ast3 -> f ast' <> f ast2 <> f ast3
+    AFun _ ast' -> f ast'
+    ALetFun _ _ ast' ast2 -> f ast' <> f ast2
+    AWhile ast' ast2 -> f ast' <> f ast2
+    ASeq ast' ast2 -> f ast' <> f ast2
 
 typeError :: String -> TranslationRes a
 typeError s = Left $ "Type error: " ++ s
@@ -130,7 +170,7 @@ makeCases (s,t) env [(pa,pb)] =
             (a1,t1) <- translate env pa
             (a2,t2) <- translate env pb
             case getEqualsOp t t1 of
-                Just op -> return (AIf (ABinaryOp op (AVar s) a1) a2 (AEmptyCase (AVar s)), t2)
+                Just op -> return (AIf (ABinaryOp op (AVar s) a1) a2 AEmptyCase, t2)
                 Nothing -> typeError ("Case split expecting equatable types, got types " ++ show (t, t1) ++ " instead")
 makeCases (s,t) env ((pa,pb):rest) = do
     (a1,t1) <- translate env pa
@@ -263,5 +303,16 @@ translate env past = case past of
 
 toAST :: PAST -> (AST, ASTType)
 toAST past = case translate Map.empty past of
-  Left s -> error s
-  Right a -> a
+    Left s -> error s
+    Right a -> a
+
+freeVars :: AST -> [String]
+freeVars = fastNub . freeVarsImpl
+    where
+        freeVarsImpl (AVar x) = [x]
+        freeVarsImpl (AFun s x) = filter (/= s) $ freeVars x
+        freeVarsImpl (ALetFun f x s t) = 
+            let a1 = filter (\y -> y /= x && y /= f) $ freeVars s
+                a2 = filter (/= f) $ freeVars t
+            in a1 ++ a2
+        freeVarsImpl ast = freeVarsImpl ><> ast

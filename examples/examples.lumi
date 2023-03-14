@@ -63,3 +63,5 @@ do sqrt 60 end
 with 4 case | 5 -> 2 | x -> 4 end
 
 fun (f : (int -> int)) : int -> f 2 + f 3 end
+
+with 4 case | 4 -> 1 end

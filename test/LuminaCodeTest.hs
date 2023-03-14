@@ -3,6 +3,7 @@ module LuminaCodeTest (runCodeTest) where
 import Lumina.Frontend.Shortcuts (loadParserFrom, getAST)
 import Lumina.Interpreter.SemanticInterpreter (Value (..), eval, getValue)
 import Lumina.Middleend.CPSConvert (toCPS)
+import Lumina.Middleend.EliminateEtaRedex (fullyElimEta)
 
 type TestCase = (String -> Value) -> Either String ()
 
@@ -71,6 +72,6 @@ runCodeTest =
             test_sqrt
     in do
         lr <- loadParserFrom "data/lr1.txt"
-        case allTests (fst . eval lr) >> allTests (getValue . toCPS . fst . getAST lr) of
+        case allTests (fst . eval lr) >> allTests (getValue . fullyElimEta . toCPS . fst . getAST lr) of
             Left err -> error err
             Right _ -> putStrLn "LuminaCodeTest PASS"

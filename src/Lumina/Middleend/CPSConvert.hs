@@ -18,7 +18,7 @@ newVar :: State Int String
 newVar = do
     i <- get
     put (i+1)
-    return $ "0cps_" ++ show i
+    return $ "0k" ++ show i
 
 liftCont :: (AST -> CPSTable AST) -> CPSTable AST
 liftCont k = do
@@ -43,7 +43,7 @@ cps ast k = case ast of
         cpsthen <- cps athen (return . AApp c)
         cpselse <- cps aelse (return . AApp c)
         return (AIf a cpsthen cpselse)
-    AEmptyCase x -> k (AEmptyCase x)
+    AEmptyCase -> k AEmptyCase
     AFun s ast' -> do
         c <- newVar
         res <- cps ast' (return . AApp (AVar c))

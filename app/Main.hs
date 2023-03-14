@@ -10,6 +10,8 @@ import Lumina.Frontend.Parser (preprocessLumina)
 import Lumina.Frontend.Shortcuts (getAST, loadParserFrom)
 import Lumina.Interpreter.SemanticInterpreter (eval, getValue)
 import Lumina.Middleend.CPSConvert (toCPS)
+import Lumina.Middleend.EliminateEtaRedex (fullyElimEta)
+import Lumina.Middleend.Shortcuts (transform)
 
 -- WARNING - this may take several minutes to run
 genAndPrintLR1Parser :: IO ()
@@ -51,7 +53,7 @@ demoCPS = do
     putStrLn "Enter Lumina code and I'll CPS it. Press CTRL-D when you're done."
     inp <- getContents
     let (a,t) = getAST pars inp
-    putStrLn $ show $ toCPS a
+    putStrLn $ show $ transform a
     putStrLn $ "Type: " ++ show t
 
 demoInterpreterCPS :: IO ()
@@ -60,7 +62,7 @@ demoInterpreterCPS = do
     putStrLn "Enter Lumina code and I'll interpret it. Press CTRL-D when you're done."
     inp <- getContents
     let (a,t) = getAST pars inp
-    let v = getValue $ toCPS a
+    let v = getValue $ transform a
     putStrLn $ show v ++ " : " ++ show t
 
 main :: IO ()

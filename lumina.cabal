@@ -33,6 +33,8 @@ library
       Lumina.Frontend.Shortcuts
       Lumina.Interpreter.SemanticInterpreter
       Lumina.Middleend.CPSConvert
+      Lumina.Middleend.EliminateEtaRedex
+      Lumina.Middleend.Shortcuts
       Lumina.UnsafeUtils
       Lumina.Utils
   other-modules:

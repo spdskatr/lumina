@@ -1,89 +1,104 @@
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 module LuminaCodeTest (runCodeTest) where
+
 import Lumina.Frontend.Shortcuts (loadParserFrom, getAST)
 import Lumina.Interpreter.SemanticInterpreter (Value (..), eval, getValue)
 import Lumina.Middleend.Shortcuts (transform)
+import Lumina.Frontend.ParserGen (LRParser)
+import Lumina.Frontend.Lexer (TokenTag)
+import Lumina.Frontend.LuminaGrammar (LNT)
+import Lumina.Frontend.LuminaAST (AST (..), freeVars, (><>))
 
-type TestCase = (String -> Value) -> Either String ()
+import Data.Set (Set)
+import qualified Data.Set as Set
+import Control.Monad (forM_)
 
-test_arith :: TestCase
-test_arith e = case e "2 + 3 * (5 - 6)" of
-    VInt (-1) -> Right ()
-    r -> Left $ "test_arith FAIL, got " ++ show r
+type TestCase = (String, String, Value)
 
-test_lambda :: TestCase
-test_lambda e = case e "fun (x : int) : int -> x + 3 end 3" of
-    VInt 6 -> Right ()
-    r -> Left $ "test_lambda FAIL, got " ++ show r
+testCases :: [TestCase]
+testCases = [
+    ("arith"
+    ,"2 + 3 * (5 - 6)"
+    ,VInt (-1)),
+    ("lambda"
+    ,"fun (x : int) : int -> x + 3 end 3",
+    VInt 6),
+    ("withFun"
+    ,"with fun f(x:int) : int = 5 do f 4 end"
+    ,VInt 5),
+    ("sideeffect"
+    ,"with x : int# = #5 do x := 2; !x end"
+    ,VInt 2),
+    ("casematch"
+    ,"with 5 case | x -> x+2 end"
+    ,VInt 7),
+    ("fib"
+    ,"with fun fib (x: int) : int = with x case | 0 -> 0 | 1 -> 1 | _ -> fib (x - 1) + fib (x - 2) end do fib 6 end"
+    ,VInt 8),
+    ("ref"
+    ,"with a : int # = # 0 do a := 1; !a + 1 end"
+    ,VInt 2),
+    ("countup"
+    ,"with a : int# = #0 do while !a < 5 do a := !a + 1 end; !a end"
+    ,VInt 5),
+    ("applicationOrder"
+    ,"with a : int# = #0 do fun (x : int) : int -> (a := 1; fun (y : int) : int -> y end) x end (a := !a * 2; 2); !a end"
+    ,VInt 1),
+    ("iterfib",
+    "with a : int # = # 0 do with b : int # = # 1 do with c : int # = # 2 do with n : int # = # 5 do while !(!n = 0) do n := !n - 1; c := !a; a := !b; b := !b + !c; end end end; !b end end"
+    ,VInt 8),
+    ("higherOrder"
+    ,"with f : (int -> int -> int) = fun (x : int) : (int -> int) -> fun (y : int) : int -> x + y end end do f 3 5 end"
+    ,VInt 8),
+    ("91"
+    ,"with fun m (n : int) : int = with n < 101 case | true -> m (m (n + 11)) | false -> n - 10 end do with a : int # = # 0 do while m !a = 91 do a := !a + 1 end; !a end end"
+    ,VInt 102),
+    ("sqrt"
+    ,"with fun sqrt (x : int) : int = with fun sqrtHelper (x : int) : (int -> int) = fun (y : int) : int -> with z : int = 2 * y - 1 do with z < x+1 case | true -> sqrtHelper (x-z) (y+1) | false -> y-1 end end end do sqrtHelper x 1 end do sqrt 60 end"
+    ,VInt 7)]
 
-test_withfun :: TestCase
-test_withfun e = case e "with fun f(x:int) : int = 5 do f 4 end" of
-    VInt 5 -> Right ()
-    r -> Left $ "test_withfun FAIL, got " ++ show r
+equalValues :: Value -> Value -> Bool
+equalValues VUnit VUnit = True
+equalValues (VBool a) (VBool b) = a == b
+equalValues (VInt a) (VInt b) = a == b
+equalValues _ _ = False
 
-test_sideeffect :: TestCase
-test_sideeffect e = case e "with x : int# = #5 do x := 2; !x end" of
-    VInt 2 -> Right ()
-    r -> Left $ "test_sideeffect FAIL, got " ++ show r
+checkFreeVarsAgreeWithEnv :: String -> Set String -> AST -> [String]
+checkFreeVarsAgreeWithEnv name env ast =
+    case filter (`Set.notMember` env) (freeVars ast) of
+        [] -> case ast of
+            AFun x a1 -> checkFreeVarsAgreeWithEnv name (Set.insert x env) a1
+            ALetFun f x a1 a2 ->
+                let envF = Set.insert f env
+                    envX = Set.insert x envF
+                in checkFreeVarsAgreeWithEnv name envX a1 <> checkFreeVarsAgreeWithEnv name envF a2
+            _ -> checkFreeVarsAgreeWithEnv name env ><> ast
+        l -> ["test " ++ name ++ ": AST " ++ show ast ++ " failed free variables check; variable " ++ x ++ " not found\n" | x <- l]
 
-test_casematch :: TestCase
-test_casematch e = case e "with 5 case | x -> x+2 end" of
-    VInt 7 -> Right () 
-    r -> Left $ "test_casematch FAIL, got " ++ show r
+testFreeVars :: (String -> AST) -> TestCase -> Either String ()
+testFreeVars e (name, code, _) =
+    case checkFreeVarsAgreeWithEnv name Set.empty (e code) of
+        [] -> Right ()
+        l -> Left $ "(" ++ show (length l) ++ " error(s) total) " ++ head l
 
-test_fib :: TestCase
-test_fib e = case e "with fun fib (x: int) : int = with x case | 0 -> 0 | 1 -> 1 | _ -> fib (x - 1) + fib (x - 2) end do fib 6 end" of
-    VInt 8 -> Right ()
-    r -> Left $ "test_fib FAIL, got " ++ show r
+regressionTest :: (String -> Value) -> TestCase -> Either String ()
+regressionTest e (name, code, val) =
+    let res = e code in
+    if equalValues res val then Right () else Left $ "test " ++ name ++ " failed; expected " ++ show val ++ ", got " ++ show res
 
-test_ref :: TestCase
-test_ref e = case e "with a : int # = # 0 do a := 1; !a + 1 end" of
-    VInt 2 -> Right ()
-    r -> Left $ "test_ref FAIL, got " ++ show r
+testWithEvaluator :: (String -> Value) -> Either String ()
+testWithEvaluator e = do
+    forM_ testCases (regressionTest e)
 
-test_countup :: TestCase
-test_countup e = case e "with a : int# = #0 do while !a < 5 do a := !a + 1 end; !a end" of
-    VInt 5 -> Right ()
-    r -> Left $ "test_countup FAIL, got " ++ show r
-
-test_iterfib :: TestCase
-test_iterfib e = case e "with a : int # = # 0 do with b : int # = # 1 do with c : int # = # 2 do with n : int # = # 5 do while !(!n = 0) do n := !n - 1; c := !a; a := !b; b := !b + !c; end end end; !b end end" of
-    VInt 8 -> Right ()
-    r -> Left $ "test_iterfib FAIL, got " ++ show r
-
-test_higherorder :: TestCase
-test_higherorder e = case e "with f : (int -> int -> int) = fun (x : int) : (int -> int) -> fun (y : int) : int -> x + y end end do f 3 5 end" of
-    VInt 8 -> Right ()
-    r -> Left $ "test_higherorder FAIL, got " ++ show r
-
-test_91 :: TestCase
-test_91 e = case e "with fun m (n : int) : int = with n < 101 case | true -> m (m (n + 11)) | false -> n - 10 end do with a : int # = # 0 do while m !a = 91 do a := !a + 1 end; !a end end" of
-    VInt 102 -> Right ()
-    r -> Left $ "test_91 fail, got " ++ show r
-
-test_sqrt :: TestCase
-test_sqrt e = case e "with fun sqrt (x : int) : int = with fun sqrtHelper (x : int) : (int -> int) = fun (y : int) : int -> with z : int = 2 * y - 1 do with z < x+1 case | true -> sqrtHelper (x-z) (y+1) | false -> y-1 end end end do sqrtHelper x 1 end do sqrt 60 end" of
-    VInt 7 -> Right ()
-    r -> Left $ "test_sqrt fail, got " ++ show r
-
-allTests :: TestCase
-allTests e = do
-    test_arith e
-    test_lambda e
-    test_withfun e
-    test_sideeffect e
-    test_casematch e
-    test_fib e
-    test_ref e
-    test_countup e
-    test_iterfib e
-    test_higherorder e
-    test_91 e
-    test_sqrt e
+allTests :: LRParser LNT TokenTag -> Either String ()
+allTests lr = do
+    testWithEvaluator (fst . eval lr)
+    testWithEvaluator (getValue . transform . fst . getAST lr)
+    forM_ testCases $ testFreeVars (fst . getAST lr)
 
 runCodeTest :: IO ()
-runCodeTest =do
+runCodeTest = do
     lr <- loadParserFrom "data/lr1.txt"
-    case allTests (fst . eval lr) >> allTests (getValue . transform . fst . getAST lr) of
+    case allTests lr of
         Left err -> error err
         Right _ -> putStrLn "LuminaCodeTest PASS"

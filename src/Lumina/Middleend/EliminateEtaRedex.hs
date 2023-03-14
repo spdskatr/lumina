@@ -6,7 +6,8 @@ import Lumina.Utils (untilFixedPoint)
 -- Recursively pattern match for an eta-redex in the code.
 -- NOTE: I know that in the most general case, code that is not in CPS form
 -- will not be semantically equivalent under eta eliminating transformations.
--- I am not sure whether this is true for non-CPS form.
+-- In CPS form, since the evaluation order is made explicit, this becomes 
+-- always true.
 elimEta :: AST -> AST
 elimEta ast = elimEtaImpl >:= ast
     where

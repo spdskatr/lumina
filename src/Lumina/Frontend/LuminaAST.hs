@@ -96,7 +96,7 @@ f >:= ast = f ast `orElse` case ast of
     ALetFun s str ast' ast2 -> ALetFun s str (f >:= ast') (f >:= ast2)
     ASeq ast' ast2 -> ASeq (f >:= ast') (f >:= ast2)
 
--- Recursively fold over a single level of the AST.
+-- Fold over a single level of the AST.
 (><>) :: (Monoid m) => (AST -> m) -> AST -> m
 f ><> ast = case ast of
     ABool _ -> mempty

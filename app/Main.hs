@@ -9,8 +9,6 @@ import Lumina.Utils (hasDuplicates)
 import Lumina.Frontend.Parser (preprocessLumina)
 import Lumina.Frontend.Shortcuts (getAST, loadParserFrom)
 import Lumina.Interpreter.SemanticInterpreter (eval, getValue)
-import Lumina.Middleend.CPSConvert (toCPS)
-import Lumina.Middleend.EliminateEtaRedex (fullyElimEta)
 import Lumina.Middleend.Shortcuts (transform)
 
 -- WARNING - this may take several minutes to run

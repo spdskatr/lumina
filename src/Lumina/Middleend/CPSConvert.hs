@@ -53,11 +53,9 @@ cps ast k = case ast of
         res <- cps ast' (return . AApp (AVar c))
         outer <- cps ast2 k
         return (ALetFun f x (AFun c res) outer)
-    AWhile ast' ast2 -> 
-        cps ast' $ \r -> do
-            body <- cps ast2 k
-            return (AWhile r body)
-    ASeq ast' ast2 -> cps ast' (\_ -> cps ast2 k)
+    ASeq ast' ast2 -> do
+        body <- cps ast2 k
+        cps ast' (\a -> return $ ASeq a body)
 
 toCPS :: AST -> AST
 toCPS ast = evalState (cps ast return) 0

@@ -36,12 +36,6 @@ instance Show Value where
     show VUnit = show "unit"
     show (VRef (StoreAddress a)) = "ref @ " ++ show a
     show (VFun _) = "(fun)"
-    
-(===) :: Value -> Value -> Bool
-VInt x === VInt y = x == y
-VBool a === VBool b = a == b
-VUnit === VUnit = True
-_ === _ = False
 
 applyUnaryOp :: UnaryOp -> Value -> State Store Value
 applyUnaryOp OpNot (VBool b) = return $ VBool (not b)
@@ -115,13 +109,6 @@ interpret a env = case a of
     ALetFun f x ast ast' -> do
         let envF = Map.insert f (VFun $ \val -> interpret ast (Map.insert x val envF)) env
         interpret ast' envF
-    AWhile ast ast' -> do
-        val1 <- interpret ast env
-        if val1 === VBool True then do
-            _ <- interpret ast' env
-            interpret (AWhile ast ast') env
-        else
-            return VUnit
     ASeq l r -> do
         _ <- interpret l env
         interpret r env

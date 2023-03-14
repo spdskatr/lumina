@@ -2,8 +2,7 @@
 module LuminaCodeTest (runCodeTest) where
 import Lumina.Frontend.Shortcuts (loadParserFrom, getAST)
 import Lumina.Interpreter.SemanticInterpreter (Value (..), eval, getValue)
-import Lumina.Middleend.CPSConvert (toCPS)
-import Lumina.Middleend.EliminateEtaRedex (fullyElimEta)
+import Lumina.Middleend.Shortcuts (transform)
 
 type TestCase = (String -> Value) -> Either String ()
 
@@ -22,6 +21,11 @@ test_withfun e = case e "with fun f(x:int) : int = 5 do f 4 end" of
     VInt 5 -> Right ()
     r -> Left $ "test_withfun FAIL, got " ++ show r
 
+test_sideeffect :: TestCase
+test_sideeffect e = case e "with x : int# = #5 do x := 2; !x end" of
+    VInt 2 -> Right ()
+    r -> Left $ "test_sideeffect FAIL, got " ++ show r
+
 test_casematch :: TestCase
 test_casematch e = case e "with 5 case | x -> x+2 end" of
     VInt 7 -> Right () 
@@ -36,6 +40,11 @@ test_ref :: TestCase
 test_ref e = case e "with a : int # = # 0 do a := 1; !a + 1 end" of
     VInt 2 -> Right ()
     r -> Left $ "test_ref FAIL, got " ++ show r
+
+test_countup :: TestCase
+test_countup e = case e "with a : int# = #0 do while !a < 5 do a := !a + 1 end; !a end" of
+    VInt 5 -> Right ()
+    r -> Left $ "test_countup FAIL, got " ++ show r
 
 test_iterfib :: TestCase
 test_iterfib e = case e "with a : int # = # 0 do with b : int # = # 1 do with c : int # = # 2 do with n : int # = # 5 do while !(!n = 0) do n := !n - 1; c := !a; a := !b; b := !b + !c; end end end; !b end end" of
@@ -57,21 +66,24 @@ test_sqrt e = case e "with fun sqrt (x : int) : int = with fun sqrtHelper (x : i
     VInt 7 -> Right ()
     r -> Left $ "test_sqrt fail, got " ++ show r
 
+allTests :: TestCase
+allTests e = do
+    test_arith e
+    test_lambda e
+    test_withfun e
+    test_sideeffect e
+    test_casematch e
+    test_fib e
+    test_ref e
+    test_countup e
+    test_iterfib e
+    test_higherorder e
+    test_91 e
+    test_sqrt e
+
 runCodeTest :: IO ()
-runCodeTest =
-    let allTests = do
-            test_arith
-            test_lambda
-            test_withfun
-            test_casematch
-            test_fib
-            test_ref
-            test_iterfib
-            test_higherorder
-            test_91
-            test_sqrt
-    in do
-        lr <- loadParserFrom "data/lr1.txt"
-        case allTests (fst . eval lr) >> allTests (getValue . fullyElimEta . toCPS . fst . getAST lr) of
-            Left err -> error err
-            Right _ -> putStrLn "LuminaCodeTest PASS"
+runCodeTest =do
+    lr <- loadParserFrom "data/lr1.txt"
+    case allTests (fst . eval lr) >> allTests (getValue . transform . fst . getAST lr) of
+        Left err -> error err
+        Right _ -> putStrLn "LuminaCodeTest PASS"

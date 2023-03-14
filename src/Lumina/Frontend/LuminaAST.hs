@@ -58,7 +58,6 @@ data AST
     | AIf AST AST AST
     | AFun String AST
     | ALetFun String String AST AST
-    | AWhile AST AST
     | ASeq AST AST
     deriving (Eq)
 
@@ -67,7 +66,7 @@ type TranslationRes a = Either String a
 instance Show AST where
     show (ABool b) = show b
     show (AInt i) = show i
-    show AUnit = show "()"
+    show AUnit = "()"
     show (AVar s) = s
     show (AApp a b) = "(" ++ show a ++ " " ++ show b ++ ")"
     show (AUnaryOp uo a) = show uo ++ "(" ++ show a ++ ")"
@@ -77,7 +76,6 @@ instance Show AST where
     show (AIf a b c) = "if " ++ show a ++ " then " ++ show b ++ " else " ++ show c ++  " end"
     show (AFun s b) = "fun " ++ s ++ ": " ++ show b ++ " end"
     show (ALetFun f x a b) = "let fun " ++ f ++ " " ++ x ++ " = " ++ show a ++ " in " ++ show b ++ " end"
-    show (AWhile c l) = "while " ++ show c ++ " do " ++ show l ++ " end"
     show (ASeq a b) = show a ++ "; " ++ show b
 
 -- Recursively transform the AST by providing a pattern match procedure.
@@ -96,7 +94,6 @@ f >:= ast = f ast `orElse` case ast of
     AIf ast' ast2 ast3 -> AIf (f >:= ast') (f >:= ast2) (f >:= ast3)
     AFun s ast' -> AFun s (f >:= ast')
     ALetFun s str ast' ast2 -> ALetFun s str (f >:= ast') (f >:= ast2)
-    AWhile ast' ast2 -> AWhile (f >:= ast') (f >:= ast2)
     ASeq ast' ast2 -> ASeq (f >:= ast') (f >:= ast2)
 
 -- Recursively fold over a single level of the AST.
@@ -114,7 +111,6 @@ f ><> ast = case ast of
     AIf ast' ast2 ast3 -> f ast' <> f ast2 <> f ast3
     AFun _ ast' -> f ast'
     ALetFun _ _ ast' ast2 -> f ast' <> f ast2
-    AWhile ast' ast2 -> f ast' <> f ast2
     ASeq ast' ast2 -> f ast' <> f ast2
 
 typeError :: String -> TranslationRes a
@@ -255,7 +251,7 @@ translate env past = case past of
         (a1,t1) <- translate env pa
         (a2,_) <- translate env pa'
         if t1 == TBool then 
-            return (AWhile a1 a2, TUnit)
+            return (ALetFun "0while" "0cond" (AIf (AVar "0cond") (ASeq a2 (AApp (AVar "0while") a1)) AUnit) (AApp (AVar "0while") a1), TUnit)
         else 
             typeError ("Expected boolean type for expression to while; got " ++ show t1 ++ " instead")
     PSeq pa pa' -> do

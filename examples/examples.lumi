@@ -65,3 +65,15 @@ with 4 case | 5 -> 2 | x -> 4 end
 fun (f : (int -> int)) : int -> f 2 + f 3 end
 
 with 4 case | 4 -> 1 end
+
+with a : int # = # 0 do
+    with b : int # = # 1 do
+        with c : int # = # 2 do
+            with n : int # = # 5 do
+                while !(!n = 0) do
+                    n := !n - 1;
+                end
+            end
+        end; !b
+    end
+end

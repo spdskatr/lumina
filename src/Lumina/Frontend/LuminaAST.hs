@@ -7,6 +7,7 @@ module Lumina.Frontend.LuminaAST (
     toAST,
     freeVars,
     (>:=),
+    (>>:=),
     (><>)
 ) where
 
@@ -95,6 +96,42 @@ f >:= ast = f ast `orElse` case ast of
     AFun s ast' -> AFun s (f >:= ast')
     ALetFun s str ast' ast2 -> ALetFun s str (f >:= ast') (f >:= ast2)
     ASeq ast' ast2 -> ASeq (f >:= ast') (f >:= ast2)
+
+-- Distribute a monadic action over a single level of the AST.
+(>>:=) :: (Monad m) => (AST -> m AST) -> AST -> m AST
+f >>:= ast = case ast of
+    AApp ast1 ast2 -> do
+        ast1' <- f ast1
+        ast2' <- f ast2
+        return (AApp ast1' ast2')
+    AUnaryOp uo ast1 -> do
+        ast1' <- f ast1
+        return (AUnaryOp uo ast1')
+    ABinaryOp bo ast1 ast2 -> do
+        ast1' <- f ast1
+        ast2' <- f ast2
+        return (ABinaryOp bo ast1' ast2')
+    AAssign ast1 ast2 -> do
+        ast1' <- f ast1
+        ast2' <- f ast2
+        return (AAssign ast1' ast2')
+    AIf ast1 ast2 ast3 -> do
+        ast1' <- f ast1
+        ast2' <- f ast2
+        ast3' <- f ast3
+        return (AIf ast1' ast2' ast3')
+    AFun s ast1 -> do
+        ast1' <- f ast1
+        return (AFun s ast1')
+    ALetFun s str ast1 ast2 -> do
+        ast1' <- f ast1
+        ast2' <- f ast2
+        return (ALetFun s str ast1' ast2')
+    ASeq ast1 ast2 -> do
+        ast1' <- f ast1
+        ast2' <- f ast2
+        return (ASeq ast1' ast2')
+    _ -> return ast
 
 -- Fold over a single level of the AST.
 (><>) :: (Monoid m) => (AST -> m) -> AST -> m

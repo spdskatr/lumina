@@ -6,6 +6,7 @@ module Lumina.Frontend.LuminaAST (
     AST (..),
     toAST,
     freeVars,
+    replaceVar,
     (>:=),
     (>>:=),
     (><>)
@@ -78,6 +79,15 @@ instance Show AST where
     show (AFun s b) = "fun " ++ s ++ ": " ++ show b ++ " end"
     show (ALetFun f x a b) = "let fun " ++ f ++ " " ++ x ++ " = " ++ show a ++ " in " ++ show b ++ " end"
     show (ASeq a b) = show a ++ "; " ++ show b
+
+-- Rename all references to a variable within an AST to something else.
+replaceVar :: String -> AST -> AST -> AST
+replaceVar s res = (findVar s res >:=)
+    where
+        findVar x r (AVar y)
+            | y == x    = Just r
+            | otherwise = Nothing
+        findVar _ _ _ = Nothing
 
 -- Recursively transform the AST by providing a pattern match procedure.
 -- The recursion stops as soon as an update is found.
@@ -198,7 +208,7 @@ makeCases (s,t) env [(pa,pb)] =
         PVar (PToken (Ident x)) | Map.notMember x env -> do
             let newEnv = Map.insert x t env
             (a2,t2) <- translate newEnv pb
-            return (AApp (AFun x a2) (AVar s), t2)
+            return (replaceVar x (AVar s) a2, t2)
         _ -> do
             (a1,t1) <- translate env pa
             (a2,t2) <- translate env pb
@@ -329,7 +339,8 @@ translate env past = case past of
             typeError ("Expected type " ++ show outType ++ " in body of function " ++ f ++ ", got " ++ show t1 ++ " instead")
     PCase pa (PCaseList l) -> do
         (a1,t1) <- translate env pa
-        (a2,t2) <- makeCases ("0case",t1) env l
+        let innerCaseEnv = Map.insert "0case" t1 env
+        (a2,t2) <- makeCases ("0case",t1) innerCaseEnv l
         return (AApp (AFun "0case" a2) a1, t2)
     PCaseList _ -> internalError "Found lonely CaseList"
     _ -> internalError $ "Bad PAST: " ++ show past

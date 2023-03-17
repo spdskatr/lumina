@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 module Lumina.Middleend.GlobaliseFunctions (globaliseFunctions, globalToLambda) where
 
-import Lumina.Frontend.LuminaAST (AST (..), (>:=), (>>:=), freeVars)
+import Lumina.Frontend.LuminaAST (AST (..), (>>:=), freeVars, replaceVar)
 
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -14,14 +14,6 @@ type FunctionEnv = Map String GlobalisedFunction
 
 newFunctionName :: Int -> String -> String
 newFunctionName i s = "0_" ++ s ++ "_" ++ show i
-
-replaceVar :: String -> AST -> AST -> AST
-replaceVar s res = (findVar s res >:=)
-    where
-        findVar x r (AVar y)
-            | y == x    = Just r
-            | otherwise = Nothing
-        findVar _ _ _ = Nothing
 
 globaliseFunctions :: AST -> State (Int, FunctionEnv) AST
 globaliseFunctions = \case

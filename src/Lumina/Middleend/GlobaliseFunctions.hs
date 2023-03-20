@@ -1,14 +1,15 @@
 {-# LANGUAGE LambdaCase #-}
-module Lumina.Middleend.GlobaliseFunctions (globaliseFunctions, globalToLambda) where
+module Lumina.Middleend.GlobaliseFunctions (GlobalisedFunction, FunctionEnv, globaliseFunctions, toContinuationForm) where
 
 import Lumina.Frontend.LuminaAST (AST (..), (>>:=), freeVars, replaceVar)
+import Lumina.Middleend.CPSConvert (toCPS)
 
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Control.Monad.Trans.State (State, get, put)
-import Lumina.Middleend.EliminateEtaRedex (elimEtaGlobal)
+import qualified Data.Bifunctor as Bifunctor
+import Control.Monad.Trans.State (State, get, put, runState)
 
--- GlobalisedFunction is of the form (args in reverse order, expression with no inner functions)
+-- GlobalisedFunction is of the form (argument : captured variables, expression with no inner functions)
 type GlobalisedFunction = ([String], AST)
 type FunctionEnv = Map String GlobalisedFunction
 
@@ -25,12 +26,20 @@ globaliseFunctions = \case
         (i, env) <- get
         let fv = filter (`Map.notMember` env) $ freeVars (ALetFun f x ast1' (AVar f))
         let newName = newFunctionName i f
-        put (i+1, Map.insert newName (elimEtaGlobal (x : reverse fv, ast1')) env)
+        put (i+1, Map.insert newName (x : fv, ast1') env)
 
-        let replacement = foldl (\a y -> AApp a (AVar y)) (AVar newName) fv
+        --let replacement = foldl (\a y -> AApp a (AVar y)) (AVar newName) fv
+        let replacement = AVar newName
         return $ replaceVar f replacement ast2'
     ast -> globaliseFunctions >>:= ast
 
-globalToLambda :: GlobalisedFunction -> AST
-globalToLambda ([], ast) = ast
-globalToLambda (x:xs, ast) = globalToLambda (xs, AFun x ast)
+{- "Continuation form" is an intermediate representation I made up in which 
+ - every non-continuation function has a name (i.e. the only lambdas are 
+ - continuations) and the body of every function is in continuation-passing
+ - style.
+ -}
+toContinuationForm :: AST -> FunctionEnv
+toContinuationForm ast =
+    let (a, (_, env)) = runState (globaliseFunctions ast) (0, Map.empty)
+        newEnv = Map.insert "0main" (["_"], a) env
+    in Map.map (Bifunctor.second toCPS) newEnv

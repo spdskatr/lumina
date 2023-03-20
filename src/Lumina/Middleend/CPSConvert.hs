@@ -39,23 +39,56 @@ cps ast k = case ast of
     ABinaryOp bo ast' ast2 -> cps ast' (\a -> cps ast2 (k . ABinaryOp bo a))
     AAssign ast' ast2 -> cps ast' (\a -> cps ast2 (k . AAssign a))
     AIf acond athen aelse -> cps acond $ \a -> do
+        -- Note: I do not want to duplicate the k continuation as it may be large.
+        -- This can sometimes produce useless redexes (like 1 becoming (\x -> x) 1)
         c <- liftCont k
-        cpsthen <- cps athen (return . AApp c)
-        cpselse <- cps aelse (return . AApp c)
+        cpsthen <- cpsTail athen c
+        cpselse <- cpsTail aelse c
         return (AIf a cpsthen cpselse)
     AEmptyCase -> k AEmptyCase
     AFun s ast' -> do
         c <- newVar
-        res <- cps ast' (return . AApp (AVar c))
+        res <- cpsTail ast' (AVar c)
         k (AFun s (AFun c res))
     ALetFun f x ast' ast2 -> do
         c <- newVar
-        res <- cps ast' (return . AApp (AVar c))
+        res <- cpsTail ast' (AVar c)
         outer <- cps ast2 k
         return (ALetFun f x (AFun c res) outer)
     ASeq ast' ast2 -> do
         body <- cps ast2 k
         cps ast' (\a -> return $ ASeq a body)
+
+cpsTail :: AST -> AST -> CPSTable AST
+cpsTail ast k = case ast of
+    ABool b -> return (AApp k (ABool b))
+    AInt n -> return (AApp k (AInt n))
+    AUnit -> return (AApp k AUnit)
+    AVar s -> return (AApp k (AVar s))
+    AApp ast' ast2 -> cps ast' (\f -> cps ast2 (\a -> return (AApp (AApp f a) k)))
+    AUnaryOp uo ast' -> cps ast' (return . AApp k . AUnaryOp uo)
+    ABinaryOp bo ast' ast2 -> cps ast' (\a -> cps ast2 (return . AApp k . ABinaryOp bo a))
+    AAssign ast' ast2 -> cps ast' (\a -> cps ast2 (return . AApp k . AAssign a))
+    AIf acond athen aelse -> cps acond $ \a -> do
+        -- Note: I do not want to duplicate the k continuation as it may be large.
+        -- This can sometimes produce useless redexes (like 1 becoming (\x -> x) 1)
+        c <- newVar
+        cpsthen <- cpsTail athen (AVar c)
+        cpselse <- cpsTail aelse (AVar c)
+        return (AApp (AFun c (AIf a cpsthen cpselse)) k)
+    AEmptyCase -> return (AApp k AEmptyCase)
+    AFun s ast' -> do
+        c <- newVar
+        res <- cpsTail ast' (AVar c)
+        return (AApp k (AFun s (AFun c res)))
+    ALetFun f x ast' ast2 -> do
+        c <- newVar
+        res <- cpsTail ast' (AVar c)
+        outer <- cpsTail ast2 k
+        return (AApp k (ALetFun f x (AFun c res) outer))
+    ASeq ast' ast2 -> do
+        ast2' <- cpsTail ast2 k
+        cps ast' (\a -> return $ ASeq a ast2')
 
 toCPS :: AST -> AST
 toCPS ast = evalState (cps ast return) 0

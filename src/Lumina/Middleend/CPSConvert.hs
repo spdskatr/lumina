@@ -1,4 +1,4 @@
-module Lumina.Middleend.CPSConvert (toCPS) where
+module Lumina.Middleend.CPSConvert (cps, cpsTail, toCPS) where
 
 {-
  - Converts code to continutation passing style, eliminating all tail recursion

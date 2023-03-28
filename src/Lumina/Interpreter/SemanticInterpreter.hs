@@ -18,6 +18,10 @@ import Lumina.Frontend.Lexer (TokenTag)
 import Lumina.Frontend.LuminaGrammar (LNT)
 import Lumina.Frontend.Shortcuts (getAST)
 
+{- The "reference implementation" for Lumina based on its operational semantics.
+ - A fairly straightforward interpreter.
+ -}
+
 newtype StoreAddress = StoreAddress Int deriving (Show, Eq, Ord, Ix)
 
 type Store = Map StoreAddress Value

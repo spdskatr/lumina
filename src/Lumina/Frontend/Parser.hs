@@ -13,7 +13,7 @@ import Lumina.Frontend.Lexer (TokenTag, Token (..), getTag)
 import Lumina.Frontend.LuminaGrammar (LNT, PAST (..), luminaReduceActions, luminaGrammar)
 import Lumina.Utils (headMaybe, orElse, internalError, parseError)
 
-import Control.Monad.Trans.State (State, get, modify, evalState)
+import Control.Monad.Trans.State.Strict (State, get, modify, evalState)
 import Data.Array (Array, array, listArray, (!))
 import Data.List (sort)
 import Data.Ix (Ix(..))

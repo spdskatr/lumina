@@ -2,8 +2,8 @@
 module LuminaCodeTest (runCodeTest) where
 
 import Lumina.Frontend.Shortcuts (loadParserFrom, getAST)
-import Lumina.Interpreter.SemanticInterpreter (Value (..), eval, getValue)
-import Lumina.Middleend.Shortcuts (transform)
+import Lumina.Interpreter.SemanticInterpreter (Value (..), eval, getValue, interpContinuationForm, getValueCF)
+import Lumina.Middleend.Shortcuts (transform, toOptContinuationForm)
 import Lumina.Frontend.ParserGen (LRParser)
 import Lumina.Frontend.Lexer (TokenTag)
 import Lumina.Frontend.LuminaGrammar (LNT)
@@ -11,7 +11,9 @@ import Lumina.Frontend.LuminaAST (AST (..), freeVars, (><>))
 
 import Data.Set (Set)
 import qualified Data.Set as Set
+import qualified Data.Map as Map
 import Control.Monad (forM_)
+import Lumina.Middleend.GlobaliseFunctions (FunctionEnv)
 
 type TestCase = (String, String, Value)
 
@@ -47,6 +49,9 @@ testCases = [
     ("iterfib",
     "with a : int # = # 0 do with b : int # = # 1 do with c : int # = # 2 do with n : int # = # 5 do while !(!n = 0) do n := !n - 1; c := !a; a := !b; b := !b + !c; end end end; !b end end"
     ,VInt 8),
+    ("higherOrderSimple"
+    ,"fun (x : int) : (int -> int) -> fun (y : int) : int -> x + y end end 3 5"
+    ,VInt 8),
     ("higherOrder"
     ,"with f : (int -> int -> int) = fun (x : int) : (int -> int) -> fun (y : int) : int -> x + y end end do f 3 5 end"
     ,VInt 8),
@@ -81,19 +86,32 @@ testFreeVars e (name, code, _) =
         [] -> Right ()
         l -> Left $ "(" ++ show (length l) ++ " error(s) total) " ++ head l
 
-regressionTest :: (String -> Value) -> TestCase -> Either String ()
-regressionTest e (name, code, val) =
-    let res = e code in
-    if equalValues res val then Right () else Left $ "test " ++ name ++ " failed; expected " ++ show val ++ ", got " ++ show res
+testCFWellFormed :: (String -> FunctionEnv) -> TestCase -> Either String ()
+testCFWellFormed p (name, code, _) =
+    let fs = p code
+    in forM_ (Map.toList fs) $ \(f, (fv, ast)) ->
+        let fv' = freeVars ast
+        in forM_ fv' $ \v ->
+            if v `elem` fv || Map.member v fs then
+                Right ()
+            else
+                Left $ "testCFWellFormed " ++ name ++ " failed; " ++ f ++ ":  free variable " ++ v ++ " not found"
 
-testWithEvaluator :: (String -> Value) -> Either String ()
-testWithEvaluator e = do
-    forM_ testCases (regressionTest e)
+regressionTest :: String -> (String -> Value) -> TestCase -> Either String ()
+regressionTest codename e (name, code, val) =
+    let res = e code in
+    if equalValues res val then Right () else Left $ "test " ++ codename ++ "_" ++ name ++ " failed; expected " ++ show val ++ ", got " ++ show res
+
+testWithEvaluator :: String -> (String -> Value) -> Either String ()
+testWithEvaluator codename e = do
+    forM_ testCases (regressionTest codename e)
 
 allTests :: LRParser LNT TokenTag -> Either String ()
 allTests lr = do
-    testWithEvaluator (fst . eval lr)
-    testWithEvaluator (getValue . transform . fst . getAST lr)
+    testWithEvaluator "interp" (fst . eval lr)
+    testWithEvaluator "interpCPS" (getValue . transform . fst . getAST lr)
+    forM_ testCases $ testCFWellFormed (toOptContinuationForm . fst . getAST lr)
+    testWithEvaluator "interpContForm" (getValueCF . fst . getAST lr)
     forM_ testCases $ testFreeVars (fst . getAST lr)
 
 runCodeTest :: IO ()

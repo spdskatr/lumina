@@ -9,8 +9,7 @@ import Lumina.Utils (hasDuplicates)
 import Lumina.Frontend.Parser (preprocessLumina)
 import Lumina.Frontend.Shortcuts (getAST, loadParserFrom)
 import Lumina.Interpreter.SemanticInterpreter (eval, getValue)
-import Lumina.Middleend.Shortcuts (transform)
-import Lumina.Middleend.GlobaliseFunctions (toContinuationForm)
+import Lumina.Middleend.Shortcuts (transform, toOptContinuationForm)
 
 import qualified Data.Map as Map
 
@@ -72,7 +71,7 @@ demoContinuationForm = do
     putStrLn "Enter Lumina code and I'll output the continuation form representation. Press CTRL-D when you're done."
     inp <- getContents
     let a = fst $ getAST pars inp
-    let env = toContinuationForm a
+    let env = toOptContinuationForm a
     ppAssocList $ Map.toList env
 
 
@@ -80,11 +79,11 @@ main :: IO ()
 main = do
     putStrLn "Options:\n 1 - Recompile parse tables\n\
     \ 2 - Demo lexer\n\
-    \ 3 - Demo parser + type checker\n\
+    \ 3 - Demo parser + type checker (Frontend IR)\n\
     \ 4 - Demo interpreter\n\
     \ 5 - Demo CPS\n\
     \ 6 - Demo interpreter with CPS\n\
-    \ 7 - Demo continuation form"
+    \ 7 - Demo continuation form (Middleend IR)"
     i <- readLn :: IO Int
     case i of
         1 -> genAndPrintLR1Parser

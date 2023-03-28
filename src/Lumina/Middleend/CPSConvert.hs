@@ -10,7 +10,7 @@ module Lumina.Middleend.CPSConvert (cps, cpsTail, toCPS) where
 
 import Lumina.Frontend.LuminaAST (AST(..))
 
-import Control.Monad.Trans.State (State, get, put, evalState)
+import Control.Monad.Trans.State.Strict (State, get, put, evalState)
 
 type CPSTable a = State Int a
 

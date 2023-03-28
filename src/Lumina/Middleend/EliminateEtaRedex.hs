@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
-module Lumina.Middleend.EliminateEtaRedex (fullyElimEta) where
+module Lumina.Middleend.EliminateEtaRedex (elimEta, elimEtaContForm) where
 import Lumina.Frontend.LuminaAST (AST (..), freeVars, (>:=))
-import Lumina.Utils (untilFixedPoint)
+import Lumina.Middleend.GlobaliseFunctions (FunctionEnv, allFreeVars)
 
 -- Recursively pattern match for an eta-redex in the code.
 -- NOTE: I know that in the most general case, code that is not in CPS form
@@ -16,5 +16,11 @@ elimEta ast = elimEtaImpl >:= ast
                 Just $ elimEta ast'
             _ -> Nothing
 
-fullyElimEta :: AST -> AST
-fullyElimEta = untilFixedPoint elimEta
+-- Like elimEta, but respects free variables within continuation forms
+elimEtaContForm :: FunctionEnv -> AST -> AST
+elimEtaContForm fs ast = elimEtaImpl >:= ast
+    where
+        elimEtaImpl = \case
+            AFun x (AApp ast' (AVar y)) | x == y && x `notElem` allFreeVars fs ast ->
+                Just $ elimEta ast'
+            _ -> Nothing

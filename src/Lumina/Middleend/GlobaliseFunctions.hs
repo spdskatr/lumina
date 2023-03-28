@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
-module Lumina.Middleend.GlobaliseFunctions (GlobalisedFunction, FunctionEnv, globaliseFunctions, toContinuationForm) where
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+module Lumina.Middleend.GlobaliseFunctions (GlobalisedFunction, FunctionEnv, allFreeVars, globaliseFunctions, toContinuationForm) where
 
 import Lumina.Frontend.LuminaAST (AST (..), (>>:=), replaceVar, (><>))
 import Lumina.Middleend.CPSConvert (cps)
@@ -7,10 +8,10 @@ import Lumina.Middleend.CPSConvert (cps)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import qualified Data.Bifunctor as Bifunctor
-import Control.Monad.Trans.State (State, gets, state, runState, modify)
+import Control.Monad.Trans.State.Strict (State, gets, state, runState, modify)
 import Lumina.Utils (fastNub)
 
--- GlobalisedFunction is of the form (argument : captured variables, expression with no inner functions)
+-- GlobalisedFunction is of the form (captured variables, expression with no inner functions)
 type GlobalisedFunction = ([String], AST)
 type FunctionEnv = Map String GlobalisedFunction
 type GlobaliseState a = State (Int, FunctionEnv) a
@@ -22,20 +23,21 @@ globalName name = state $ \(i, env) ->
 newGlobalFunc :: String -> GlobalisedFunction -> GlobaliseState ()
 newGlobalFunc name fd = modify $ Bifunctor.second $ Map.insert name fd
 
-allFreeVars :: AST -> GlobaliseState [String]
-allFreeVars a = gets (\(_, env) -> allFreeVarsImpl env a)
-    where 
-        allFreeVarsImpl env ast =
-            case ast of
-                AVar x -> case Map.lookup x env of
-                    Nothing -> [x]
-                    Just (fv, _) -> fv
-                AFun x ast1 -> filter (/= x) $ allFreeVarsImpl env ast1
-                ALetFun f x ast1 ast2 -> 
-                    let fv1 = filter (\y -> y /= x && y /= f) $ allFreeVarsImpl env ast1
-                        fv2 = filter (/= f) $ allFreeVarsImpl env ast2
-                    in fastNub $ fv1 ++ fv2
-                _ -> allFreeVarsImpl env ><> ast
+allFreeVars :: FunctionEnv -> AST -> [String]
+allFreeVars env ast =
+    case ast of
+        AVar x -> case Map.lookup x env of
+            Nothing -> [x]
+            Just (fv, _) -> fv
+        AFun x ast1 -> filter (/= x) $ allFreeVars env ast1
+        ALetFun f x ast1 ast2 -> 
+            let fv1 = filter (\y -> y /= x && y /= f) $ allFreeVars env ast1
+                fv2 = filter (/= f) $ allFreeVars env ast2
+            in fastNub $ fv1 ++ fv2
+        _ -> allFreeVars env ><> ast
+
+allFreeVarsState :: AST -> GlobaliseState [String]
+allFreeVarsState a = gets (\(_, env) -> allFreeVars env a)
 
 globaliseFunctions :: AST -> GlobaliseState AST
 globaliseFunctions = \case
@@ -48,7 +50,7 @@ globaliseFunctions = \case
         ast2' <- globaliseFunctions $ replaceVar f (AVar newName) ast2
 
         -- Insert the actual function body
-        fv <- allFreeVars (ALetFun f x ast1' (AVar f))
+        fv <- allFreeVarsState (ALetFun f x ast1' (AVar f))
         newGlobalFunc newName (fv, AFun x ast1')
 
         -- Output the rest
@@ -68,5 +70,5 @@ allToCPS (i, env) f (fv, ast) =
 toContinuationForm :: AST -> FunctionEnv
 toContinuationForm ast =
     let (a, (_, env)) = runState (globaliseFunctions ast) (0, Map.empty)
-        newEnv = Map.insert "0main" ([], a) env
+        newEnv = Map.insert "0main" ([], AFun "0arg" a) env
     in snd $ Map.foldlWithKey allToCPS (0, Map.empty) newEnv

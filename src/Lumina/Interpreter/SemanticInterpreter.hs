@@ -1,9 +1,13 @@
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 module Lumina.Interpreter.SemanticInterpreter (
     Store,
     Env,
     Value(..),
+    contFormToEnv,
+    interpContinuationForm,
     interpret,
     getValue,
+    getValueCF,
     eval
 ) where
 
@@ -12,11 +16,13 @@ import Data.Ix (Ix)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Lumina.Frontend.LuminaAST (AST (..), UnaryOp (..), BinaryOp (..), ASTType)
-import Lumina.Utils (internalError, interpError)
+import Lumina.Utils (internalError, interpError, orElse)
 import Lumina.Frontend.ParserGen (LRParser)
 import Lumina.Frontend.Lexer (TokenTag)
 import Lumina.Frontend.LuminaGrammar (LNT)
 import Lumina.Frontend.Shortcuts (getAST)
+import Lumina.Middleend.GlobaliseFunctions (FunctionEnv, toContinuationForm)
+import Lumina.UnsafeUtils (unsafeTag)
 
 {- The "reference implementation" for Lumina based on its operational semantics.
  - A fairly straightforward interpreter.
@@ -33,6 +39,9 @@ data Value
     | VUnit
     | VRef StoreAddress
     | VFun (Value -> State Store Value)
+    | VClosure (Env -> Value -> State Store Value)
+-- Env argument to VFun allows it to capture variables from calling context
+-- Useful for continuation-form functions
 
 instance Show Value where
     show (VInt i) = show i
@@ -40,6 +49,7 @@ instance Show Value where
     show VUnit = show "unit"
     show (VRef (StoreAddress a)) = "ref @ " ++ show a
     show (VFun _) = "(fun)"
+    show (VClosure _) = "(closure)"
 
 applyUnaryOp :: UnaryOp -> Value -> State Store Value
 applyUnaryOp OpNot (VBool b) = return $ VBool (not b)
@@ -69,7 +79,9 @@ interpret a env = case a of
     ABool b -> return (VBool b)
     AInt n -> return (VInt n)
     AUnit -> return VUnit
-    AVar s -> return $ env Map.! s
+    AVar s -> case env Map.! s of
+        VClosure cl -> return $ VFun (cl env)
+        v -> return v
     AApp a1 a2 -> do
         val1 <- interpret a1 env
         case val1 of
@@ -118,8 +130,32 @@ interpret a env = case a of
         interpret r env
 --  _ -> internalError $ "Bad AST (which should never happen): " ++ show a
 
+-- Continuation form interpreter
+contFormToEnv :: FunctionEnv -> Env
+contFormToEnv fe = Map.map (\(fv, AFun x ast) -> VClosure $ \outerEnv v -> 
+    let boundFromOuter = Map.fromList $ (\k -> (k, outerEnv Map.!? k `orElse` unboundError k)) <$> fv
+        boundMap = Map.union boundFromOuter (contFormToEnv fe)
+        unboundError k = internalError ("variable " ++ k ++ " not found in outer context: " ++ show (Map.keys outerEnv) ++ " " ++ show v)
+    in interpret ast (Map.insert x v boundMap)) fe
+
+interpContinuationForm :: FunctionEnv -> State Store Value
+interpContinuationForm fs = 
+    let mainEnv = contFormToEnv fs
+        VClosure entryPoint = mainEnv Map.! "0main"
+    in do
+        contV <- entryPoint mainEnv VUnit
+        case contV of
+            VFun c -> c (VFun return)
+            _ -> internalError $ "main doesn't accept a continuation as second argument, found " ++ show contV ++ " instead"
+
+-- Shortcuts
 getValue :: AST -> Value
 getValue ast = evalState (interpret ast Map.empty) Map.empty
+
+getValueCF :: AST -> Value
+getValueCF ast =
+    let fs = toContinuationForm ast
+    in evalState (interpContinuationForm fs) Map.empty
 
 eval :: LRParser LNT TokenTag -> String -> (Value, ASTType)
 eval lr code = 

@@ -11,7 +11,7 @@ import Lumina.Frontend.LuminaAST (AST (..), freeVars, (><>))
 
 import Data.Set (Set)
 import qualified Data.Set as Set
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Control.Monad (forM_)
 import Lumina.Middleend.GlobaliseFunctions (FunctionEnv)
 

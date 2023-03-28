@@ -13,12 +13,12 @@ module Lumina.Frontend.LuminaAST (
 ) where
 
 import Lumina.Frontend.LuminaGrammar (PAST (..))
-import Data.Map (Map)
+import Data.Map.Strict (Map)
 import Lumina.Utils (internalError, fastNub, orElse)
 import Lumina.Frontend.Lexer (Token(..))
 import Control.Monad (liftM2)
 
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 
 data ASTType
     = TInt

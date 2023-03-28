@@ -18,7 +18,7 @@ newVar :: State Int String
 newVar = do
     i <- get
     put (i+1)
-    return $ "0k" ++ show i
+    return $ show i ++ "k"
 
 liftCont :: (AST -> CPSTable AST) -> CPSTable AST
 liftCont k = do

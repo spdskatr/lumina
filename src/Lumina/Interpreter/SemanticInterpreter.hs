@@ -13,8 +13,8 @@ module Lumina.Interpreter.SemanticInterpreter (
 
 import Control.Monad.Trans.State.Strict (State, evalState, get, put)
 import Data.Ix (Ix)
-import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Lumina.Frontend.LuminaAST (AST (..), UnaryOp (..), BinaryOp (..), ASTType)
 import Lumina.Utils (internalError, interpError, orElse)
 import Lumina.Frontend.ParserGen (LRParser)
@@ -22,7 +22,6 @@ import Lumina.Frontend.Lexer (TokenTag)
 import Lumina.Frontend.LuminaGrammar (LNT)
 import Lumina.Frontend.Shortcuts (getAST)
 import Lumina.Middleend.GlobaliseFunctions (FunctionEnv, toContinuationForm)
-import Lumina.UnsafeUtils (unsafeTag)
 
 {- The "reference implementation" for Lumina based on its operational semantics.
  - A fairly straightforward interpreter.
@@ -40,7 +39,7 @@ data Value
     | VRef StoreAddress
     | VFun (Value -> State Store Value)
     | VClosure (Env -> Value -> State Store Value)
--- Env argument to VFun allows it to capture variables from calling context
+-- Env argument to VClosure allows it to capture variables from calling context
 -- Useful for continuation-form functions
 
 instance Show Value where

@@ -35,7 +35,7 @@ import Data.Function (on)
 import Data.List.Extra (enumerate)
 import Data.Ix (Ix(..))
 
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 
 import Lumina.Frontend.Lexer (Tag)
 import Lumina.Utils (orElse, update, untilFixedPoint, countUp, fastNub)

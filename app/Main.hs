@@ -11,7 +11,7 @@ import Lumina.Frontend.Shortcuts (getAST, loadParserFrom)
 import Lumina.Interpreter.SemanticInterpreter (eval, getValue)
 import Lumina.Middleend.Shortcuts (transform, toOptContinuationForm)
 
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 
 -- WARNING - this may take several minutes to run
 genAndPrintLR1Parser :: IO ()

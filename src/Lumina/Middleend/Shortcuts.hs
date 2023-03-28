@@ -6,7 +6,7 @@ import Lumina.Frontend.LuminaAST (AST)
 import Lumina.Utils (untilFixedPoint)
 import Lumina.Middleend.GlobaliseFunctions (FunctionEnv, toContinuationForm)
 
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import qualified Data.Bifunctor as Bifunctor
 
 transform :: AST -> AST

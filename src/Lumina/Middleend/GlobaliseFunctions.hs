@@ -5,8 +5,8 @@ module Lumina.Middleend.GlobaliseFunctions (GlobalisedFunction, FunctionEnv, all
 import Lumina.Frontend.LuminaAST (AST (..), (>>:=), replaceVar, (><>))
 import Lumina.Middleend.CPSConvert (cps)
 
-import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import qualified Data.Bifunctor as Bifunctor
 import Control.Monad.Trans.State.Strict (State, gets, state, runState, modify)
 import Lumina.Utils (fastNub)

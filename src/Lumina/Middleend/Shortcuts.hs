@@ -1,13 +1,10 @@
 module Lumina.Middleend.Shortcuts (transform, toOptContinuationForm) where
 
-import Lumina.Middleend.EliminateEtaRedex (elimEta, elimEtaContForm)
+import Lumina.Middleend.EliminateEtaRedex (elimEta)
 import Lumina.Middleend.CPSConvert (toCPS)
 import Lumina.Frontend.LuminaAST (AST)
 import Lumina.Utils (untilFixedPoint)
 import Lumina.Middleend.GlobaliseFunctions (FunctionEnv, toContinuationForm)
-
-import qualified Data.Map.Strict as Map
-import qualified Data.Bifunctor as Bifunctor
 
 transform :: AST -> AST
 transform = untilFixedPoint elimEta . toCPS
@@ -20,4 +17,3 @@ toOptContinuationForm :: AST -> FunctionEnv
 toOptContinuationForm ast =
     let fs = toContinuationForm ast
     in fs
-    --in Map.map (Bifunctor.second $ untilFixedPoint (elimEtaContForm fs)) fs

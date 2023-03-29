@@ -12,6 +12,7 @@ import Lumina.Interpreter.SemanticInterpreter (eval, getValue)
 import Lumina.Middleend.Shortcuts (transform, toOptContinuationForm)
 
 import qualified Data.Map.Strict as Map
+import Lumina.Middleend.GlobaliseFunctions (globaliseFunctions)
 
 -- WARNING - this may take several minutes to run
 genAndPrintLR1Parser :: IO ()
@@ -65,6 +66,15 @@ demoInterpreterCPS = do
     let v = getValue $ transform a
     putStrLn $ show v ++ " : " ++ show t
 
+demoGlobalisedForm :: IO ()
+demoGlobalisedForm = do
+    pars <- loadParserFrom "data/lr1.txt"
+    putStrLn "Enter Lumina code and I'll output the globalised form representation. Press CTRL-D when you're done."
+    inp <- getContents
+    let a = fst $ getAST pars inp
+    let env = globaliseFunctions a
+    ppAssocList $ Map.toList env
+
 demoContinuationForm :: IO ()
 demoContinuationForm = do
     pars <- loadParserFrom "data/lr1.txt"
@@ -83,7 +93,8 @@ main = do
     \ 4 - Demo interpreter\n\
     \ 5 - Demo CPS\n\
     \ 6 - Demo interpreter with CPS\n\
-    \ 7 - Demo continuation form (Middleend IR)"
+    \ 7 - Demo globalised form\n\
+    \ 8 - Demo continuation form (Middleend IR)"
     i <- readLn :: IO Int
     case i of
         1 -> genAndPrintLR1Parser
@@ -92,5 +103,6 @@ main = do
         4 -> demoInterpreter
         5 -> demoCPS
         6 -> demoInterpreterCPS
-        7 -> demoContinuationForm
+        7 -> demoGlobalisedForm
+        8 -> demoContinuationForm
         _ -> error $ "Unrecognised option " ++ show i

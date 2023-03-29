@@ -84,10 +84,11 @@ instance Show AST where
 replaceVar :: String -> AST -> AST -> AST
 replaceVar s res = (findVar s res >:=)
     where
-        findVar x r (AVar y)
-            | y == x    = Just r
-            | otherwise = Nothing
-        findVar _ _ _ = Nothing
+        findVar x r ast = case ast of
+            AVar y | y == x                  -> Just r
+            AFun y _ | x == y                -> Just ast
+            ALetFun f y _ _ | x `elem` [f,y] -> Just ast
+            _ -> Nothing
 
 -- Recursively transform the AST by providing a pattern match procedure.
 -- The recursion stops as soon as an update is found.

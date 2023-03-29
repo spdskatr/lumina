@@ -21,7 +21,8 @@ import Lumina.Frontend.ParserGen (LRParser)
 import Lumina.Frontend.Lexer (TokenTag)
 import Lumina.Frontend.LuminaGrammar (LNT)
 import Lumina.Frontend.Shortcuts (getAST)
-import Lumina.Middleend.GlobaliseFunctions (FunctionEnv, toContinuationForm)
+import Lumina.Middleend.GlobaliseFunctions (FunctionEnv)
+import Lumina.Middleend.Shortcuts (toOptContinuationForm)
 
 {- The "reference implementation" for Lumina based on its operational semantics.
  - A fairly straightforward interpreter.
@@ -153,7 +154,7 @@ getValue ast = evalState (interpret ast Map.empty) Map.empty
 
 getValueCF :: AST -> Value
 getValueCF ast =
-    let fs = toContinuationForm ast
+    let fs = toOptContinuationForm ast
     in evalState (interpContinuationForm fs) Map.empty
 
 eval :: LRParser LNT TokenTag -> String -> (Value, ASTType)

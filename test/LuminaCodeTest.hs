@@ -61,9 +61,13 @@ testCases = [
     ("sqrt"
     ,"with fun sqrt (x : int) : int = with fun sqrtHelper (x : int) : (int -> int) = fun (y : int) : int -> with z : int = 2 * y - 1 do with z < x+1 case | true -> sqrtHelper (x-z) (y+1) | false -> y-1 end end end do sqrtHelper x 1 end do sqrt 60 end"
     ,VInt 7),
+    ("shadowingCase"
+    ,"with 5 case | x -> (fun (x:int):int -> x + 1 end) 1 end"
+    ,VInt 2),
     ("shadowing"
     ,"with a : int = 1 do with fun f (x : int) : int = with b : int = a do with a : int = 2 do with x case | 0 -> b | _ -> f (x-1) end end end do f 5 end end"
-    ,VInt 1)]
+    ,VInt 1)
+    ]
 
 equalValues :: Value -> Value -> Bool
 equalValues VUnit VUnit = True

@@ -34,6 +34,7 @@ library
       Lumina.Interpreter.SemanticInterpreter
       Lumina.Middleend.CPSConvert
       Lumina.Middleend.EliminateEtaRedex
+      Lumina.Middleend.EliminateShadowing
       Lumina.Middleend.GlobaliseFunctions
       Lumina.Middleend.Shortcuts
       Lumina.UnsafeUtils

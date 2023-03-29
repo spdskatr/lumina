@@ -14,6 +14,21 @@ import Control.Monad.Trans.State.Strict (State, get, put, evalState)
 
 type CPSTable a = State Int a
 
+data CPSFunc
+    = CProc String String CPSExpr
+
+data CPSAtom
+    = CPSAtom AST
+
+data CPSCont
+    = CContRef String
+    | CCont String CPSExpr
+
+data CPSExpr
+    = CCall String CPSAtom CPSCont
+    | CRet String CPSAtom
+    | CIf CPSAtom CPSExpr CPSExpr
+
 newVar :: String -> State Int String
 newVar label = do
     i <- get

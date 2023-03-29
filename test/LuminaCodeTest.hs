@@ -2,7 +2,7 @@
 module LuminaCodeTest (runCodeTest) where
 
 import Lumina.Frontend.Shortcuts (loadParserFrom, getAST)
-import Lumina.Interpreter.SemanticInterpreter (Value (..), eval, getValue, interpContinuationForm, getValueCF)
+import Lumina.Interpreter.SemanticInterpreter (Value (..), eval, getValue, getValueCF)
 import Lumina.Middleend.Shortcuts (transform, toOptContinuationForm)
 import Lumina.Frontend.ParserGen (LRParser)
 import Lumina.Frontend.Lexer (TokenTag)

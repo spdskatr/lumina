@@ -13,7 +13,11 @@ transform :: AST -> AST
 transform = untilFixedPoint elimEta . toCPS
 
 -- Return an eta-redex eliminated Continuation Form.
+-- Temporarily disabled because I still can't decide.
+-- Eta-redexes are useful for the time being since they leave each function in
+-- a nice form.
 toOptContinuationForm :: AST -> FunctionEnv
 toOptContinuationForm ast =
     let fs = toContinuationForm ast
-    in Map.map (Bifunctor.second $ untilFixedPoint (elimEtaContForm fs)) fs
+    in fs
+    --in Map.map (Bifunctor.second $ untilFixedPoint (elimEtaContForm fs)) fs

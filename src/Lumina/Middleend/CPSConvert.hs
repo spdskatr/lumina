@@ -14,15 +14,15 @@ import Control.Monad.Trans.State.Strict (State, get, put, evalState)
 
 type CPSTable a = State Int a
 
-newVar :: State Int String
-newVar = do
+newVar :: String -> State Int String
+newVar label = do
     i <- get
     put (i+1)
-    return $ show i ++ "k"
+    return $ show i ++ label
 
-liftCont :: (AST -> CPSTable AST) -> CPSTable AST
-liftCont k = do
-    r <- newVar
+liftCont :: String -> (AST -> CPSTable AST) -> CPSTable AST
+liftCont label k = do
+    r <- newVar label
     inner <- k (AVar r)
     return $ AFun r inner
 
@@ -33,7 +33,7 @@ cps ast k = case ast of
     AUnit -> k AUnit
     AVar s -> k (AVar s)
     AApp ast' ast2 -> do
-        cont <- liftCont k
+        cont <- liftCont "cont" k
         cps ast' (\f -> cps ast2 (\a -> return (AApp (AApp f a) cont)))
     AUnaryOp uo ast' -> cps ast' (k . AUnaryOp uo)
     ABinaryOp bo ast' ast2 -> cps ast' (\a -> cps ast2 (k . ABinaryOp bo a))
@@ -41,17 +41,17 @@ cps ast k = case ast of
     AIf acond athen aelse -> cps acond $ \a -> do
         -- Note: I do not want to duplicate the k continuation as it may be large.
         -- This can sometimes produce useless redexes (like 1 becoming (\x -> x) 1)
-        c <- liftCont k
+        c <- liftCont "jump" k
         cpsthen <- cpsTail athen c
         cpselse <- cpsTail aelse c
         return (AIf a cpsthen cpselse)
     AEmptyCase -> k AEmptyCase
     AFun s ast' -> do
-        c <- newVar
+        c <- newVar "k"
         res <- cpsTail ast' (AVar c)
         k (AFun s (AFun c res))
     ALetFun f x ast' ast2 -> do
-        c <- newVar
+        c <- newVar "k"
         res <- cpsTail ast' (AVar c)
         outer <- cps ast2 k
         return (ALetFun f x (AFun c res) outer)
@@ -72,17 +72,17 @@ cpsTail ast k = case ast of
     AIf acond athen aelse -> cps acond $ \a -> do
         -- Note: I do not want to duplicate the k continuation as it may be large.
         -- This can sometimes produce useless redexes (like 1 becoming (\x -> x) 1)
-        c <- newVar
+        c <- newVar "jump"
         cpsthen <- cpsTail athen (AVar c)
         cpselse <- cpsTail aelse (AVar c)
         return (AApp (AFun c (AIf a cpsthen cpselse)) k)
     AEmptyCase -> return (AApp k AEmptyCase)
     AFun s ast' -> do
-        c <- newVar
+        c <- newVar "k"
         res <- cpsTail ast' (AVar c)
         return (AApp k (AFun s (AFun c res)))
     ALetFun f x ast' ast2 -> do
-        c <- newVar
+        c <- newVar "k"
         res <- cpsTail ast' (AVar c)
         outer <- cpsTail ast2 k
         return (AApp k (ALetFun f x (AFun c res) outer))

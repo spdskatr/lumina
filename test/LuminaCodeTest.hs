@@ -66,7 +66,10 @@ testCases = [
     ,VInt 2),
     ("shadowing"
     ,"with a : int = 1 do with fun f (x : int) : int = with b : int = a do with a : int = 2 do with x case | 0 -> b | _ -> f (x-1) end end end do f 5 end end"
-    ,VInt 1)
+    ,VInt 1),
+    ("shortCircuit"
+    ,"with a : int# = #0 do true || (a := !a + 1; true); false && (a := !a + 1; false); !a end"
+    ,VInt 0)
     ]
 
 equalValues :: Value -> Value -> Bool

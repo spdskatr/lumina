@@ -32,6 +32,7 @@ library
       Lumina.Frontend.ParserGen
       Lumina.Frontend.Shortcuts
       Lumina.Interpreter.SemanticInterpreter
+      Lumina.Middleend.ANFConvert
       Lumina.Middleend.CPSConvert
       Lumina.Middleend.EliminateEtaRedex
       Lumina.Middleend.EliminateShadowing

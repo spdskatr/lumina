@@ -59,8 +59,8 @@ cps ast k = case ast of
         outer <- cps ast2 k
         return (ALetFun f x (AFun c res) outer)
     ASeq ast' ast2 -> do
-        body <- cps ast2 k
-        cps ast' (\a -> return $ ASeq a body)
+        c <- liftCont "jump" (\_ -> cps ast2 k)
+        cpsTail ast' c
 
 cpsTail :: AST -> AST -> CPSTable AST
 cpsTail ast k = case ast of
@@ -94,8 +94,8 @@ cpsTail ast k = case ast of
         outer <- cpsTail ast2 k
         return (AApp k (ALetFun f x (AFun c res) outer))
     ASeq ast' ast2 -> do
-        ast2' <- cpsTail ast2 k
-        cps ast' (\a -> return $ ASeq a ast2')
+        c <- liftCont "jump" (\_ -> cpsTail ast2 k)
+        cpsTail ast' c
 
 toCPS :: AST -> AST
 toCPS ast = evalState (cps ast return) 0

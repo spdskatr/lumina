@@ -125,6 +125,9 @@ interpret a env = case a of
     ALetFun f x ast ast' -> do
         let envF = Map.insert f (VFun $ \val -> interpret ast (Map.insert x val envF)) env
         interpret ast' envF
+    ASeq l r -> do
+        _ <- interpret l env
+        interpret r env
 --  _ -> internalError $ "Bad AST (which should never happen): " ++ show a
 
 -- Continuation form interpreter

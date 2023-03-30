@@ -60,6 +60,7 @@ data AST
     | AIf AST AST AST
     | AFun String AST
     | ALetFun String String AST AST
+    | ASeq AST AST
     deriving (Eq)
 
 type TranslationRes a = Either String a
@@ -77,6 +78,7 @@ instance Show AST where
     show (AIf a b c) = "if " ++ show a ++ " then " ++ show b ++ " else " ++ show c ++  " end"
     show (AFun s b) = "fun " ++ s ++ ": " ++ show b ++ " end"
     show (ALetFun f x a b) = "let fun " ++ f ++ " " ++ x ++ " = " ++ show a ++ " in " ++ show b ++ " end"
+    show (ASeq a b) = show a ++ "; " ++ show b
 
 -- Rename all references to a variable within an AST to something else.
 replaceVar :: String -> AST -> AST -> AST
@@ -104,6 +106,7 @@ f >:= ast = f ast `orElse` case ast of
     AIf ast' ast2 ast3 -> AIf (f >:= ast') (f >:= ast2) (f >:= ast3)
     AFun s ast' -> AFun s (f >:= ast')
     ALetFun s str ast' ast2 -> ALetFun s str (f >:= ast') (f >:= ast2)
+    ASeq ast' ast2 -> ASeq (f >:= ast') (f >:= ast2)
 
 -- Distribute a monadic action over a single level of the AST.
 (>>:=) :: (Monad m) => (AST -> m AST) -> AST -> m AST
@@ -135,6 +138,10 @@ f >>:= ast = case ast of
         ast1' <- f ast1
         ast2' <- f ast2
         return (ALetFun s str ast1' ast2')
+    ASeq ast1 ast2 -> do
+        ast1' <- f ast1
+        ast2' <- f ast2
+        return (ASeq ast1' ast2')
     _ -> return ast
 
 -- Fold over a single level of the AST.
@@ -152,10 +159,7 @@ f ><> ast = case ast of
     AIf ast' ast2 ast3 -> f ast' <> f ast2 <> f ast3
     AFun _ ast' -> f ast'
     ALetFun _ _ ast' ast2 -> f ast' <> f ast2
-
--- Replacement for ASeq in the AST. Does the sequencing but in lambda calculus
-aseq :: AST -> AST -> AST
-aseq ast1 ast2 = AApp (AFun "0seq" ast2) ast1
+    ASeq ast' ast2 -> f ast' <> f ast2
 
 typeError :: String -> TranslationRes a
 typeError s = Left $ "Type error: " ++ s
@@ -295,13 +299,13 @@ translate env past = case past of
         (a1,t1) <- translate env pa
         (a2,_) <- translate env pa'
         if t1 == TBool then 
-            return (ALetFun "0while" "0cond" (AIf (AVar "0cond") (aseq a2 (AApp (AVar "0while") a1)) AUnit) (AApp (AVar "0while") a1), TUnit)
+            return (ALetFun "0while" "0cond" (AIf (AVar "0cond") (ASeq a2 (AApp (AVar "0while") a1)) AUnit) (AApp (AVar "0while") a1), TUnit)
         else 
             typeError ("Expected boolean type for expression to while; got " ++ show t1 ++ " instead")
     PSeq pa pa' -> do
         (a1,_) <- translate env pa
         (a2,t2) <- translate env pa'
-        return (aseq a1 a2, t2)
+        return (ASeq a1 a2, t2)
     PFun (PToken (Ident x)) ta ta' pa' -> do
         inType <- getType ta
         let newEnv = Map.insert x inType env

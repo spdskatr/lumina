@@ -9,7 +9,8 @@ module Lumina.Utils (
     interpError,
     parseError,
     fastNub,
-    headMaybe
+    headMaybe,
+    indent
 ) where
 
 import Data.List (group, sort, groupBy)
@@ -50,3 +51,6 @@ interpError msg = error ("Interpreter error: " ++ msg)
 
 parseError :: String -> a
 parseError msg = error ("Parse error: " ++ msg)
+
+indent :: String -> String
+indent ex = unlines (("  " ++) <$> lines ex)

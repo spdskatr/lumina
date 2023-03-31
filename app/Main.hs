@@ -5,14 +5,19 @@ module Main (main) where
 import Lumina.Frontend.Lexer (getAllTokensLumina)
 import Lumina.Frontend.ParserGen (generateParser, LRParser (LRParser), ppAssocList)
 import Lumina.Frontend.LuminaGrammar (luminaGrammar)
-import Lumina.Utils (hasDuplicates)
+import Lumina.Utils (hasDuplicates, indent)
 import Lumina.Frontend.Parser (preprocessLumina)
 import Lumina.Frontend.Shortcuts (getAST, loadParserFrom)
 import Lumina.Interpreter.SemanticInterpreter (eval, getValue)
 import Lumina.Middleend.Shortcuts (transform, toOptContinuationForm)
+import Lumina.Middleend.GlobaliseFunctions (globaliseFunctions)
+import Lumina.Middleend.ANFConvert (toMonadicForm)
 
 import qualified Data.Map.Strict as Map
-import Lumina.Middleend.GlobaliseFunctions (globaliseFunctions)
+import qualified Data.Bifunctor as Bifunctor
+import Lumina.Frontend.LuminaAST (AST(..))
+import Control.Monad (forM_)
+import Data.List (intercalate)
 
 -- WARNING - this may take several minutes to run
 genAndPrintLR1Parser :: IO ()
@@ -78,11 +83,15 @@ demoGlobalisedForm = do
 demoContinuationForm :: IO ()
 demoContinuationForm = do
     pars <- loadParserFrom "data/lr1.txt"
-    putStrLn "Enter Lumina code and I'll output the continuation form representation. Press CTRL-D when you're done."
+    putStrLn "Enter Lumina code and I'll output the monadic form representation. Press CTRL-D when you're done."
     inp <- getContents
     let a = fst $ getAST pars inp
-    let env = toOptContinuationForm a
-    ppAssocList $ Map.toList env
+    let env = Map.map (\(fv, (AFun x (AFun k a))) -> (fv, x, toMonadicForm (Map.singleton k (AVar k)) a)) $ toOptContinuationForm a
+    forM_ (Map.toList env) $ \(k, (fv, x, mf)) -> do
+        putStrLn $ "Function " ++ k
+        putStrLn $ "Free variables: " ++ intercalate "," fv
+        putStrLn $ "Argument: " ++ x
+        putStrLn $ indent $ show mf
 
 
 main :: IO ()
@@ -94,7 +103,7 @@ main = do
     \ 5 - Demo CPS\n\
     \ 6 - Demo interpreter with CPS\n\
     \ 7 - Demo globalised form\n\
-    \ 8 - Demo continuation form (Middleend IR)"
+    \ 8 - Demo monadic form (Middleend IR)"
     i <- readLn :: IO Int
     case i of
         1 -> genAndPrintLR1Parser

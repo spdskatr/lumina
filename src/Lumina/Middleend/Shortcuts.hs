@@ -1,6 +1,6 @@
 module Lumina.Middleend.Shortcuts (transform, toOptContinuationForm) where
 
-import Lumina.Middleend.EliminateEtaRedex (elimEta)
+import Lumina.Middleend.RedexElimination (elimEta)
 import Lumina.Middleend.CPSConvert (toCPS)
 import Lumina.Frontend.LuminaAST (AST)
 import Lumina.Utils (untilFixedPoint)

@@ -36,7 +36,7 @@ with f : (int -> int -> int) = fun (x : int) : (int -> int) -> fun (y : int) : i
 with fun fact (x : int) : int = with x case | 0 -> 1 | _ -> fact (x - 1) * x end do fact 5 end
 
 with fun m (n : int) : int = 
-    with n < 101 case | true -> m (m (n + 11)) | false -> n - 10 end
+    with n < 101 case | true -> m (m (n + 11)) | _ -> n - 10 end
 do
     with a : int # = # 0 do
         while m !a = 91 do
@@ -51,7 +51,7 @@ with fun sqrt (x : int) : int =
             with z : int = 2 * y - 1 do
                 with z < x+1 case
                 | true -> sqrtHelper (x-z) (y+1)
-                | false -> y-1
+                | _ -> y-1
                 end
             end
         end 

@@ -107,8 +107,6 @@ interpret a env = case a of
             VBool True -> interpret athen env
             VBool False -> interpret aelse env
             _ -> internalError $ "If statement wants boolean as condition, found " ++ show res ++ " instead"
-    AEmptyCase -> do
-        interpError "Case match ran out of cases!"
     AAssign ast ast' -> do
         val1 <- interpret ast env
         val2 <- interpret ast' env

@@ -56,10 +56,10 @@ testCases = [
     ,"with f : (int -> int -> int) = fun (x : int) : (int -> int) -> fun (y : int) : int -> x + y end end do f 3 5 end"
     ,VInt 8),
     ("91"
-    ,"with fun m (n : int) : int = with n < 101 case | true -> m (m (n + 11)) | false -> n - 10 end do with a : int # = # 0 do while m !a = 91 do a := !a + 1 end; !a end end"
+    ,"with fun m (n : int) : int = with n < 101 case | true -> m (m (n + 11)) | _ -> n - 10 end do with a : int # = # 0 do while m !a = 91 do a := !a + 1 end; !a end end"
     ,VInt 102),
     ("sqrt"
-    ,"with fun sqrt (x : int) : int = with fun sqrtHelper (x : int) : (int -> int) = fun (y : int) : int -> with z : int = 2 * y - 1 do with z < x+1 case | true -> sqrtHelper (x-z) (y+1) | false -> y-1 end end end do sqrtHelper x 1 end do sqrt 60 end"
+    ,"with fun sqrt (x : int) : int = with fun sqrtHelper (x : int) : (int -> int) = fun (y : int) : int -> with z : int = 2 * y - 1 do with z < x+1 case | true -> sqrtHelper (x-z) (y+1) | _ -> y-1 end end end do sqrtHelper x 1 end do sqrt 60 end"
     ,VInt 7),
     ("shadowingCase"
     ,"with 5 case | x -> (fun (x:int):int -> x + 1 end) 1 end"

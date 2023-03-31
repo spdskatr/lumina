@@ -43,12 +43,13 @@ cps ast k = case ast of
     AAssign ast' ast2 -> cps ast' (\a -> cps ast2 (k . AAssign a))
     AIf acond athen aelse -> cps acond $ \a -> do
         -- Note: I do not want to duplicate the k continuation as it may be large.
-        -- This can sometimes produce useless redexes (like 1 becoming (\x -> x) 1)
+        -- Hence, I lift the continuation to be evaluated at execution time.
+        -- Correction: The continuation seems to be replicated at most twice, since
+        -- cps_tail will never replicate the continuation it's given.
         c <- liftCont "jump" k
         cpsthen <- cpsTail athen c
         cpselse <- cpsTail aelse c
         return (AIf a cpsthen cpselse)
-    AEmptyCase -> k AEmptyCase
     AFun s ast' -> do
         c <- newVar "k"
         res <- cpsTail ast' (AVar c)
@@ -83,7 +84,6 @@ cpsTail ast k = case ast of
         cpsthen <- cpsTail athen (AVar c)
         cpselse <- cpsTail aelse (AVar c)
         return (AApp (AFun c (AIf a cpsthen cpselse)) k)
-    AEmptyCase -> return (AApp k AEmptyCase)
     AFun s ast' -> do
         c <- newVar "k"
         res <- cpsTail ast' (AVar c)

@@ -5,6 +5,7 @@ module Lumina.Frontend.LuminaAST (
     UnaryOp (..),
     AST (..),
     toAST,
+    isTrivial,
     freeVars,
     replaceVar,
     (>:=),
@@ -56,7 +57,6 @@ data AST
     | AUnaryOp UnaryOp AST
     | ABinaryOp BinaryOp AST AST
     | AAssign AST AST
-    | AEmptyCase
     | AIf AST AST AST
     | AFun String AST
     | ALetFun String String AST AST
@@ -74,7 +74,6 @@ instance Show AST where
     show (AUnaryOp uo a) = show uo ++ "(" ++ show a ++ ")"
     show (ABinaryOp bo a b) = "(" ++ show a ++ " " ++ show bo ++ " " ++ show b ++ ")"
     show (AAssign a b) = show a ++ " := " ++ show b
-    show AEmptyCase = "EmptyCase"
     show (AIf a b c) = "if " ++ show a ++ " then " ++ show b ++ " else " ++ show c ++  " end"
     show (AFun s b) = "fun " ++ s ++ ": " ++ show b ++ " end"
     show (ALetFun f x a b) = "let fun " ++ f ++ " " ++ x ++ " = " ++ show a ++ " in " ++ show b ++ " end"
@@ -90,6 +89,14 @@ replaceVar s res = (findVar s res >:=)
             ALetFun f y _ _ | x `elem` [f,y] -> Just ast
             _ -> Nothing
 
+isTrivial :: AST -> Bool
+isTrivial ast = case ast of
+    ABool _ -> True
+    AInt _ -> True
+    AUnit -> True
+    AVar _ -> True
+    _ -> False
+
 -- Recursively transform the AST by providing a pattern match procedure.
 -- The recursion stops as soon as an update is found.
 (>:=) :: (AST -> Maybe AST) -> AST -> AST
@@ -102,7 +109,6 @@ f >:= ast = f ast `orElse` case ast of
     AUnaryOp uo ast' -> AUnaryOp uo (f >:= ast')
     ABinaryOp bo ast' ast2 -> ABinaryOp bo (f >:= ast') (f >:= ast2)
     AAssign ast' ast2 -> AAssign (f >:= ast') (f >:= ast2)
-    AEmptyCase -> AEmptyCase
     AIf ast' ast2 ast3 -> AIf (f >:= ast') (f >:= ast2) (f >:= ast3)
     AFun s ast' -> AFun s (f >:= ast')
     ALetFun s str ast' ast2 -> ALetFun s str (f >:= ast') (f >:= ast2)
@@ -155,7 +161,6 @@ f ><> ast = case ast of
     AUnaryOp _ ast' -> f ast'
     ABinaryOp _ ast' ast2 -> f ast' <> f ast2
     AAssign ast' ast2 -> f ast' <> f ast2
-    AEmptyCase -> mempty
     AIf ast' ast2 ast3 -> f ast' <> f ast2 <> f ast3
     AFun _ ast' -> f ast'
     ALetFun _ _ ast' ast2 -> f ast' <> f ast2
@@ -206,16 +211,12 @@ makeCases :: (String, ASTType) -> TypeEnv -> [(PAST, PAST)] -> TranslationRes (A
 makeCases _ _ [] = typeError "No matches in case expression"
 makeCases (s,t) env [(pa,pb)] =
     case pa of
-        PVar (PToken (Ident x)) | Map.notMember x env -> do
+        PVar (PToken (Ident x)) -> do
             let newEnv = Map.insert x t env
             (a2,t2) <- translate newEnv pb
             return (replaceVar x (AVar s) a2, t2)
         _ -> do
-            (a1,t1) <- translate env pa
-            (a2,t2) <- translate env pb
-            case getEqualsOp t t1 of
-                Just op -> return (AIf (ABinaryOp op (AVar s) a1) a2 AEmptyCase, t2)
-                Nothing -> typeError ("Case split expecting equatable types, got types " ++ show (t, t1) ++ " instead")
+            typeError "Case expression should always end with a default case"
 makeCases (s,t) env ((pa,pb):rest) = do
     (a1,t1) <- translate env pa
     (a2,t2) <- translate env pb

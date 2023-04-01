@@ -40,13 +40,28 @@ data BinaryOp
     | OpLessThan
     | OpIntEqual
     | OpBoolEqual
-    deriving (Eq, Show)
+    deriving Eq
+
+instance Show BinaryOp where
+    show OpAdd = "+"
+    show OpSub = "-"
+    show OpMul = "*"
+    show OpAnd = "&&"
+    show OpOr = "||"
+    show OpLessThan = "<"
+    show OpIntEqual = "=="
+    show OpBoolEqual = "XNOR"
 
 data UnaryOp
     = OpNot
     | OpBang
     | OpRef
-    deriving (Eq, Show)
+    deriving Eq
+
+instance Show UnaryOp where
+    show OpNot = "~"
+    show OpBang = "!"
+    show OpRef = "#"
 
 data AST
     = ABool Bool

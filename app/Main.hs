@@ -86,11 +86,9 @@ demoContinuationForm = do
     putStrLn "Enter Lumina code and I'll output the monadic form representation. Press CTRL-D when you're done."
     inp <- getContents
     let a = fst $ getAST pars inp
-    let env = Map.map (\(fv, (AFun x (AFun k a))) -> (fv, x, toMonadicForm (Map.singleton k (AVar k)) a)) $ toOptContinuationForm a
+    let env = Map.map (\(fv, (AFun x (AFun k a))) -> (fv, x, toMonadicForm k a)) $ toOptContinuationForm a
     forM_ (Map.toList env) $ \(k, (fv, x, mf)) -> do
-        putStrLn $ "Function " ++ k
-        putStrLn $ "Free variables: " ++ intercalate "," fv
-        putStrLn $ "Argument: " ++ x
+        putStrLn $ "define " ++ k ++ "[" ++ intercalate ", " fv ++ "](" ++ x ++ ") ="
         putStrLn $ indent $ show mf
 
 

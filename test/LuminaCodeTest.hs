@@ -2,19 +2,19 @@
 module LuminaCodeTest (runCodeTest) where
 
 import Lumina.Frontend.Shortcuts (loadParserFrom, getAST)
-import Lumina.Interpreter.SemanticInterpreter (Value (..), eval, getValue, getValueCF)
+import Lumina.Interpreter.AstraInterpreter (Value (..), eval, getValue, getValueCF)
 import Lumina.Middleend.Shortcuts (transform, toOptContinuationForm)
 import Lumina.Frontend.ParserGen (LRParser)
 import Lumina.Frontend.Lexer (TokenTag)
 import Lumina.Frontend.LuminaGrammar (LNT)
-import Lumina.Frontend.LuminaAST (AST (..), freeVars, (><>))
+import Lumina.Middleend.Astra.Astra (AST (..), freeVars, (><>))
 
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Map.Strict as Map
 import Control.Monad (forM_)
-import Lumina.Middleend.GlobaliseFunctions (FunctionEnv)
-import Lumina.Frontend.LuminaAST (AST(..))
+import Lumina.Middleend.Astra.HoistFunctions (FunctionEnv)
+import Lumina.Middleend.Astra.Astra (AST(..))
 
 type TestCase = (String, String, Value)
 

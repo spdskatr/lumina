@@ -3,7 +3,7 @@ module Lumina.Frontend.Shortcuts (getAST, loadParserFrom) where
 import Lumina.Frontend.ParserGen (LRParser)
 import Lumina.Frontend.LuminaGrammar (LNT)
 import Lumina.Frontend.Lexer (TokenTag, getAllTokensLumina)
-import Lumina.Frontend.LuminaAST (AST, ASTType, toAST)
+import Lumina.Middleend.Astra.Astra (AST, ASTType, toAST)
 import Lumina.Frontend.Parser (toParserArray, preprocessLumina, producePAST)
 
 -- The power of the entire frontend... in the palm of your hand

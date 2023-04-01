@@ -1,9 +1,9 @@
 {-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-module Lumina.Middleend.GlobaliseFunctions (GlobalisedFunction, FunctionEnv, globaliseFunctions, toContinuationForm) where
+module Lumina.Middleend.Astra.HoistFunctions (GlobalisedFunction, FunctionEnv, globaliseFunctions, toContinuationForm) where
 
-import Lumina.Frontend.LuminaAST (AST (..), (>>:=), replaceVar, (><>))
-import Lumina.Middleend.CPSConvert (cps)
+import Lumina.Middleend.Astra.Astra (AST (..), (>>:=), replaceVar, (><>))
+import Lumina.Middleend.Astra.CPS (cps)
 
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map

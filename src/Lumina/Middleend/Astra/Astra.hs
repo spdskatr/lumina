@@ -1,4 +1,4 @@
-module Lumina.Frontend.LuminaAST (
+module Lumina.Middleend.Astra.Astra (
     ASTType (..),
     TypeEnv,
     BinaryOp (..),

@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-module Lumina.Interpreter.SemanticInterpreter (
+module Lumina.Interpreter.AstraInterpreter (
     Store,
     Env,
     Value(..),
@@ -15,13 +15,13 @@ import Control.Monad.Trans.State.Strict (State, evalState, get, put)
 import Data.Ix (Ix)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Lumina.Frontend.LuminaAST (AST (..), UnaryOp (..), BinaryOp (..), ASTType)
+import Lumina.Middleend.Astra.Astra (AST (..), UnaryOp (..), BinaryOp (..), ASTType)
 import Lumina.Utils (internalError, orElse)
 import Lumina.Frontend.ParserGen (LRParser)
 import Lumina.Frontend.Lexer (TokenTag)
 import Lumina.Frontend.LuminaGrammar (LNT)
 import Lumina.Frontend.Shortcuts (getAST)
-import Lumina.Middleend.GlobaliseFunctions (FunctionEnv)
+import Lumina.Middleend.Astra.HoistFunctions (FunctionEnv)
 import Lumina.Middleend.Shortcuts (toOptContinuationForm)
 
 {- The "reference implementation" for Lumina based on its operational semantics.

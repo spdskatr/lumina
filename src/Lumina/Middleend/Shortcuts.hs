@@ -1,14 +1,13 @@
 module Lumina.Middleend.Shortcuts (transform, toOptContinuationForm) where
 
-import Lumina.Middleend.RedexElimination (elimEta)
-import Lumina.Middleend.CPSConvert (toCPS)
-import Lumina.Frontend.LuminaAST (AST)
+import Lumina.Middleend.Astra.CPS (toCPS)
+import Lumina.Middleend.Astra.Astra (AST)
 import Lumina.Utils (untilFixedPoint)
-import Lumina.Middleend.GlobaliseFunctions (FunctionEnv, toContinuationForm)
-import Lumina.Middleend.EliminateShadowing (elimShadowing)
+import Lumina.Middleend.Astra.HoistFunctions (FunctionEnv, toContinuationForm)
+import Lumina.Middleend.Astra.ElimShadowing (elimShadowing)
 
 transform :: AST -> AST
-transform = untilFixedPoint elimEta . toCPS
+transform = toCPS
 
 -- Return an eta-redex eliminated Continuation Form.
 -- Temporarily disabled because I still can't decide.

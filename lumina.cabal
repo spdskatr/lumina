@@ -26,17 +26,16 @@ source-repository head
 library
   exposed-modules:
       Lumina.Frontend.Lexer
-      Lumina.Frontend.LuminaAST
       Lumina.Frontend.LuminaGrammar
       Lumina.Frontend.Parser
       Lumina.Frontend.ParserGen
       Lumina.Frontend.Shortcuts
-      Lumina.Interpreter.SemanticInterpreter
-      Lumina.Middleend.ANFConvert
-      Lumina.Middleend.CPSConvert
-      Lumina.Middleend.EliminateShadowing
-      Lumina.Middleend.GlobaliseFunctions
-      Lumina.Middleend.RedexElimination
+      Lumina.Interpreter.AstraInterpreter
+      Lumina.Middleend.Astra.Astra
+      Lumina.Middleend.Astra.CPS
+      Lumina.Middleend.Astra.ElimShadowing
+      Lumina.Middleend.Astra.HoistFunctions
+      Lumina.Middleend.Mona.Mona
       Lumina.Middleend.Shortcuts
       Lumina.UnsafeUtils
       Lumina.Utils

@@ -8,14 +8,14 @@ import Lumina.Frontend.LuminaGrammar (luminaGrammar)
 import Lumina.Utils (hasDuplicates, indent)
 import Lumina.Frontend.Parser (preprocessLumina)
 import Lumina.Frontend.Shortcuts (getAST, loadParserFrom)
-import Lumina.Interpreter.SemanticInterpreter (eval, getValue)
+import Lumina.Interpreter.AstraInterpreter (eval, getValue)
 import Lumina.Middleend.Shortcuts (transform, toOptContinuationForm)
-import Lumina.Middleend.GlobaliseFunctions (globaliseFunctions)
-import Lumina.Middleend.ANFConvert (toMonadicForm)
+import Lumina.Middleend.Astra.HoistFunctions (globaliseFunctions)
+import Lumina.Middleend.Mona.Mona (toMonadicForm)
 
 import qualified Data.Map.Strict as Map
 import qualified Data.Bifunctor as Bifunctor
-import Lumina.Frontend.LuminaAST (AST(..))
+import Lumina.Middleend.Astra.Astra (AST(..))
 import Control.Monad (forM_)
 import Data.List (intercalate)
 
@@ -62,15 +62,6 @@ demoCPS = do
     putStrLn $ show $ transform a
     putStrLn $ "Type: " ++ show t
 
-demoInterpreterCPS :: IO ()
-demoInterpreterCPS = do
-    pars <- loadParserFrom "data/lr1.txt"
-    putStrLn "Enter Lumina code and I'll interpret it. Press CTRL-D when you're done."
-    inp <- getContents
-    let (a,t) = getAST pars inp
-    let v = getValue $ transform a
-    putStrLn $ show v ++ " : " ++ show t
-
 demoGlobalisedForm :: IO ()
 demoGlobalisedForm = do
     pars <- loadParserFrom "data/lr1.txt"
@@ -80,8 +71,8 @@ demoGlobalisedForm = do
     let env = globaliseFunctions a
     ppAssocList $ Map.toList env
 
-demoContinuationForm :: IO ()
-demoContinuationForm = do
+demoMona :: IO ()
+demoMona = do
     pars <- loadParserFrom "data/lr1.txt"
     putStrLn "Enter Lumina code and I'll output the monadic form representation. Press CTRL-D when you're done."
     inp <- getContents
@@ -96,12 +87,11 @@ main :: IO ()
 main = do
     putStrLn "Options:\n 1 - Recompile parse tables\n\
     \ 2 - Demo lexer\n\
-    \ 3 - Demo parser + type checker (Frontend IR)\n\
-    \ 4 - Demo interpreter\n\
-    \ 5 - Demo CPS\n\
-    \ 6 - Demo interpreter with CPS\n\
-    \ 7 - Demo globalised form\n\
-    \ 8 - Demo monadic form (Middleend IR)"
+    \ 3 - Output Astra (Frontend IR)\n\
+    \ 4 - Demo Astra interpreter\n\
+    \ 5 - Demo CPS transformation\n\
+    \ 6 - Demo hoisted functions\n\
+    \ 7 - Demo Mona (Middleend IR)"
     i <- readLn :: IO Int
     case i of
         1 -> genAndPrintLR1Parser
@@ -109,7 +99,6 @@ main = do
         3 -> demoParser
         4 -> demoInterpreter
         5 -> demoCPS
-        6 -> demoInterpreterCPS
-        7 -> demoGlobalisedForm
-        8 -> demoContinuationForm
+        6 -> demoGlobalisedForm
+        7 -> demoMona
         _ -> error $ "Unrecognised option " ++ show i

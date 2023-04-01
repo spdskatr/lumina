@@ -1,6 +1,6 @@
-module Lumina.Middleend.ANFConvert (MContEnv, MValue, MExpr, toMonadicForm) where
+module Lumina.Middleend.Mona.Mona (MContEnv, MValue, MExpr, toMonadicForm) where
 
-import Lumina.Frontend.LuminaAST (UnaryOp, BinaryOp, AST (..))
+import Lumina.Middleend.Astra.Astra (UnaryOp, BinaryOp, AST (..))
 import Lumina.Utils (internalError, indent)
 
 import Data.Map (Map)

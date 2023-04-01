@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
-module Lumina.Middleend.EliminateShadowing (elimShadowing) where
+module Lumina.Middleend.Astra.ElimShadowing (elimShadowing) where
 
-import Lumina.Frontend.LuminaAST (AST (..), (>:=))
+import Lumina.Middleend.Astra.Astra (AST (..), (>:=))
 
 import Data.Map (Map)
 import qualified Data.Map as Map

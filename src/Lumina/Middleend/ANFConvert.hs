@@ -1,4 +1,4 @@
-module Lumina.Middleend.ANFConvert where
+module Lumina.Middleend.ANFConvert (MContEnv, MValue, MExpr, toMonadicForm) where
 
 import Lumina.Frontend.LuminaAST (UnaryOp, BinaryOp, AST (..))
 import Lumina.Utils (internalError, indent)
@@ -51,8 +51,6 @@ instance Show MExpr where
     show (MLetApp s v1 v2 ex) = "let " ++ s ++ " = " ++ show v1 ++ " " ++ show v2 ++ " in\n" ++ indent (show ex)
     show (MIf v e1 e2) = "if " ++ show v ++ " then\n" ++ indent (show e1) ++ "else\n" ++ indent (show e2)
     show (MReturn v) = "return " ++ show v
-
-
 
 monadicFormError :: String -> a
 monadicFormError s = internalError ("Could not convert to monadic form: " ++ s)

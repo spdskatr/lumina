@@ -93,3 +93,17 @@ with a : int = 1 do
         f 5
     end
 end
+
+with fun fibcps (x : int) : ((int -> int) -> int) =
+    fun (k : (int -> int)) : int -> 
+        with x case 
+        | 0 -> k 1 
+        | 1 -> k 1
+        | _ -> 
+            fibcps (x-1) (fun (r : int) : int -> 
+                fibcps (x-2) (fun (s : int) : int -> k (r+s) end) end)
+        end
+    end
+do
+    fibcps 25 (fun (x:int) : int -> x end)
+end

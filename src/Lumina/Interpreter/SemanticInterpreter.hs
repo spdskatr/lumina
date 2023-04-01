@@ -16,7 +16,7 @@ import Data.Ix (Ix)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Lumina.Frontend.LuminaAST (AST (..), UnaryOp (..), BinaryOp (..), ASTType)
-import Lumina.Utils (internalError, interpError, orElse)
+import Lumina.Utils (internalError, orElse)
 import Lumina.Frontend.ParserGen (LRParser)
 import Lumina.Frontend.Lexer (TokenTag)
 import Lumina.Frontend.LuminaGrammar (LNT)

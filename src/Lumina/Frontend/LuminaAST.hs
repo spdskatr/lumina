@@ -15,7 +15,7 @@ module Lumina.Frontend.LuminaAST (
 
 import Lumina.Frontend.LuminaGrammar (PAST (..))
 import Data.Map.Strict (Map)
-import Lumina.Utils (internalError, fastNub, orElse)
+import Lumina.Utils (internalError, fastNub, orElse, indent)
 import Lumina.Frontend.Lexer (Token(..))
 import Control.Monad (liftM2)
 
@@ -74,6 +74,7 @@ data AST
     | AAssign AST AST
     | AIf AST AST AST
     | AFun String AST
+    | ALet String AST AST
     | ALetFun String String AST AST
     | ASeq AST AST
     deriving (Eq)
@@ -89,18 +90,20 @@ instance Show AST where
     show (AUnaryOp uo a) = show uo ++ "(" ++ show a ++ ")"
     show (ABinaryOp bo a b) = "(" ++ show a ++ " " ++ show bo ++ " " ++ show b ++ ")"
     show (AAssign a b) = show a ++ " := " ++ show b
-    show (AIf a b c) = "if " ++ show a ++ " then " ++ show b ++ " else " ++ show c ++  " end"
-    show (AFun s b) = "fun " ++ s ++ ": " ++ show b ++ " end"
-    show (ALetFun f x a b) = "let fun " ++ f ++ " " ++ x ++ " = " ++ show a ++ " in " ++ show b ++ " end"
-    show (ASeq a b) = show a ++ "; " ++ show b
+    show (AIf a b c) = "if " ++ show a ++ " then\n" ++ indent (show b) ++ "else\n" ++ indent (show c) ++ "end"
+    show (ALet x a b) = "let " ++ x ++ " = " ++ show a ++ " in\n" ++ indent (show b) ++ "end"
+    show (AFun s b) = "fun " ++ s ++ ":\n" ++ indent (show b) ++ "end"
+    show (ALetFun f x a b) = "let fun " ++ f ++ " " ++ x ++ " =\n" ++ indent (show a) ++ "in\n" ++ indent (show b) ++ "end"
+    show (ASeq a b) = show a ++ ";\n" ++ show b
 
 -- Rename all references to a variable within an AST to something else.
 replaceVar :: String -> AST -> AST -> AST
-replaceVar s res = (findVar s res >:=)
+replaceVar x r = (findVar >:=)
     where
-        findVar x r ast = case ast of
-            AVar y | y == x                  -> Just r
+        findVar ast = case ast of
+            AVar y | x == y                  -> Just r
             AFun y _ | x == y                -> Just ast
+            ALet y a b | x == y              -> Just (ALet y (replaceVar x r a) b)
             ALetFun f y _ _ | x `elem` [f,y] -> Just ast
             _ -> Nothing
 
@@ -126,6 +129,7 @@ f >:= ast = f ast `orElse` case ast of
     AAssign ast' ast2 -> AAssign (f >:= ast') (f >:= ast2)
     AIf ast' ast2 ast3 -> AIf (f >:= ast') (f >:= ast2) (f >:= ast3)
     AFun s ast' -> AFun s (f >:= ast')
+    ALet s ast' ast2 -> ALet s (f >:= ast') (f >:= ast2)
     ALetFun s str ast' ast2 -> ALetFun s str (f >:= ast') (f >:= ast2)
     ASeq ast' ast2 -> ASeq (f >:= ast') (f >:= ast2)
 
@@ -155,6 +159,10 @@ f >>:= ast = case ast of
     AFun s ast1 -> do
         ast1' <- f ast1
         return (AFun s ast1')
+    ALet s ast1 ast2 -> do
+        ast1' <- f ast1
+        ast2' <- f ast2
+        return (ALet s ast1' ast2')
     ALetFun s str ast1 ast2 -> do
         ast1' <- f ast1
         ast2' <- f ast2
@@ -178,6 +186,7 @@ f ><> ast = case ast of
     AAssign ast' ast2 -> f ast' <> f ast2
     AIf ast' ast2 ast3 -> f ast' <> f ast2 <> f ast3
     AFun _ ast' -> f ast'
+    ALet _ ast' ast2 -> f ast' <> f ast2
     ALetFun _ _ ast' ast2 -> f ast' <> f ast2
     ASeq ast' ast2 -> f ast' <> f ast2
 
@@ -337,7 +346,7 @@ translate env past = case past of
         (a1,t1) <- translate env pa
         (a2,t2) <- translate newEnv pa'
         if t1 == actualType then
-            return (AApp (AFun x a2) a1, t2)
+            return (ALet x a1 a2, t2)
         else
             typeError ("Expected type " ++ show actualType ++ " in with, got " ++ show t1 ++ " instead")
     
@@ -372,6 +381,7 @@ freeVars = fastNub . freeVarsImpl
     where
         freeVarsImpl (AVar x) = [x]
         freeVarsImpl (AFun s x) = filter (/= s) $ freeVars x
+        freeVarsImpl (ALet x s t) = freeVars s ++ filter (/= x) (freeVars t)
         freeVarsImpl (ALetFun f x s t) = 
             let a1 = filter (\y -> y /= x && y /= f) $ freeVars s
                 a2 = filter (/= f) $ freeVars t

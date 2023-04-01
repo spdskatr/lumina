@@ -120,6 +120,10 @@ interpret a env = case a of
         return $ VFun $ \val -> do
             let newEnv = Map.insert s val env
             interpret ast' newEnv
+    ALet x ast ast' -> do
+        val <- interpret ast env
+        let envX = Map.insert x val env
+        interpret ast' envX
     ALetFun f x ast ast' -> do
         let envF = Map.insert f (VFun $ \val -> interpret ast (Map.insert x val envF)) env
         interpret ast' envF

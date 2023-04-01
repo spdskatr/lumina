@@ -30,6 +30,10 @@ allFreeVars env ast =
             Nothing -> [x]
             Just (fv, _) -> fv
         AFun x ast1 -> filter (/= x) $ allFreeVars env ast1
+        ALet x ast1 ast2 ->
+            let fv1 = allFreeVars env ast1
+                fv2 = filter (/= x) $ allFreeVars env ast2
+            in fastNub $ fv1 ++ fv2
         ALetFun f x ast1 ast2 -> 
             let fv1 = filter (\y -> y /= x && y /= f) $ allFreeVars env ast1
                 fv2 = filter (/= f) $ allFreeVars env ast2

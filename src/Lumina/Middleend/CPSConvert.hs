@@ -35,7 +35,7 @@ cps ast k = case ast of
         cont <- liftCont "cont" k
         cps ast' (\f -> cps ast2 (\a -> return (AApp (AApp f a) cont)))
     AUnaryOp uo ast' -> cps ast' (k . AUnaryOp uo)
-    ABinaryOp bo ast' ast2 -> 
+    ABinaryOp bo ast' ast2 ->
         case bo of
             OpOr -> cps (AIf ast' (ABool True) ast2) k
             OpAnd -> cps (AIf ast' ast2 (ABool False)) k
@@ -54,12 +54,17 @@ cps ast k = case ast of
         c <- newVar "k"
         res <- cpsTail ast' (AVar c)
         k (AFun s (AFun c res))
+    ALet x ast' ast2 -> do
+        res <- cps ast2 k
+        cps ast' (return . AApp (AFun x res))
     ALetFun f x ast' ast2 -> do
         c <- newVar "k"
         res <- cpsTail ast' (AVar c)
         outer <- cps ast2 k
         return (ALetFun f x (AFun c res) outer)
     ASeq ast' ast2 -> do
+        -- We need to lift the continuation to make sure that our expression
+        -- actually gets evaluated
         c <- liftCont "jump" (\_ -> cps ast2 k)
         cpsTail ast' c
 
@@ -71,7 +76,7 @@ cpsTail ast k = case ast of
     AVar s -> return (AApp k (AVar s))
     AApp ast' ast2 -> cps ast' (\f -> cps ast2 (\a -> return (AApp (AApp f a) k)))
     AUnaryOp uo ast' -> cps ast' (return . AApp k . AUnaryOp uo)
-    ABinaryOp bo ast' ast2 -> 
+    ABinaryOp bo ast' ast2 ->
         case bo of
             OpOr -> cpsTail (AIf ast' (ABool True) ast2) k
             OpAnd -> cpsTail (AIf ast' ast2 (ABool False)) k
@@ -93,6 +98,9 @@ cpsTail ast k = case ast of
         res <- cpsTail ast' (AVar c)
         outer <- cpsTail ast2 k
         return (AApp k (ALetFun f x (AFun c res) outer))
+    ALet x ast' ast2 -> do
+        res <- cpsTail ast2 k
+        cps ast' (return . AApp (AFun x res))
     ASeq ast' ast2 -> do
         c <- liftCont "jump" (\_ -> cpsTail ast2 k)
         cpsTail ast' c

@@ -14,6 +14,7 @@ import qualified Data.Set as Set
 import qualified Data.Map.Strict as Map
 import Control.Monad (forM_)
 import Lumina.Middleend.GlobaliseFunctions (FunctionEnv)
+import Lumina.Frontend.LuminaAST (AST(..))
 
 type TestCase = (String, String, Value)
 
@@ -86,6 +87,9 @@ checkFreeVarsAgreeWithEnv name env ast =
     case filter (`Set.notMember` env) (freeVars ast) of
         [] -> case ast of
             AFun x a1 -> checkFreeVarsAgreeWithEnv name (Set.insert x env) a1
+            ALet x a1 a2 ->
+                let env2 = Set.insert x env
+                in checkFreeVarsAgreeWithEnv name env a1 <> checkFreeVarsAgreeWithEnv name env2 a2
             ALetFun f x a1 a2 ->
                 let envF = Set.insert f env
                     envX = Set.insert x envF

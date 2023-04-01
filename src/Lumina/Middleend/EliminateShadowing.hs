@@ -22,6 +22,9 @@ elimShadowingImpl env = \case
     AFun x ast -> 
         let newEnv = insertVar x x env
         in Just $ AFun (newEnv Map.! x) $ elimShadowingImpl newEnv >:= ast
+    ALet x a1 a2 ->
+        let newEnv = insertVar x x env
+        in Just $ ALet (newEnv Map.! x) (elimShadowingImpl env >:= a1) (elimShadowingImpl newEnv >:= a2)
     ALetFun f x a1 a2 ->
         let fEnv = insertVar f f env
             xEnv = insertVar x x fEnv

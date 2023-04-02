@@ -3,8 +3,8 @@ module Lumina.Middleend.Astra.ElimShadowing (elimShadowing) where
 
 import Lumina.Middleend.Astra.Astra (AST (..), (>:=))
 
-import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Lumina.Utils (internalError)
 
 elimShadowing :: AST -> AST

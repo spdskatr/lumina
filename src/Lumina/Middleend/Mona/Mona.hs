@@ -1,11 +1,13 @@
-module Lumina.Middleend.Mona.Mona (MContEnv, MValue, MExpr, toMonadicForm) where
+module Lumina.Middleend.Mona.Mona (MContEnv, MAtom (..), MValue (..), MExpr (..), MonaFunction(..), (>:=), toMonadicForm, astraToMona) where
 
 import Lumina.Middleend.Astra.Astra (UnaryOp, BinaryOp, AST (..))
-import Lumina.Utils (internalError, indent)
+import Lumina.Utils (internalError, indent, orElse)
 
-import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Control.Monad.Trans.State.Strict (State, evalState, get, put)
+import Lumina.Middleend.Astra.HoistFunctions (toContinuationForm)
+import Data.List (intercalate)
 
 {-
  - After hoisting all of our functions into a main environment and converting
@@ -26,13 +28,24 @@ data ContType
     | ContReturn
 
 type MContEnv = Map String ContType
-type MVarEnv = Map String MAtom
+
+data MonaFunction = MonaFunction 
+    { getName :: String
+    , getFV :: [String]
+    , getArg :: String
+    , getBody :: MExpr 
+    }
+
+instance Show MonaFunction where
+    show (MonaFunction f fv x e) = 
+        "define " ++ f ++ "[" ++ intercalate ", " fv ++ "](" ++ x ++ ") =\n" ++ indent (show e)
 
 data MAtom
     = MVar String
     | MInt Int
     | MBool Bool
     | MUnit
+    deriving Eq
 
 instance Show MAtom where
     show (MVar s) = s
@@ -41,12 +54,15 @@ instance Show MAtom where
     show MUnit = show ()
 
 data MValue
-    = MUnary UnaryOp MAtom
+    = MJust MAtom
+    | MUnary UnaryOp MAtom
     | MBinary BinaryOp MAtom MAtom
     | MApp MAtom MAtom
     | MAssign MAtom MAtom
+    deriving Eq
 
 instance Show MValue where
+    show (MJust val) = show val
     show (MUnary uo val) = show uo ++ show val
     show (MBinary bo v1 v2) = "(" ++ show v1 ++ " " ++ show bo ++ " " ++ show v2 ++ ")"
     show (MApp v1 v2) = show v1 ++ " " ++ show v2
@@ -56,11 +72,20 @@ data MExpr
     = MLet String MValue MExpr
     | MIf MAtom MExpr MExpr
     | MReturn MAtom
+    deriving Eq
 
 instance Show MExpr where
     show (MLet s v ex) = "let " ++ s ++ " = " ++ show v ++ "\n" ++ show ex
     show (MIf v e1 e2) = "if " ++ show v ++ " then\n" ++ indent (show e1) ++ "else\n" ++ indent (show e2)
     show (MReturn v) = "return " ++ show v
+
+(>:=) :: (MExpr -> Maybe MExpr) -> MExpr -> MExpr
+f >:= m = f m `orElse` recurse
+    where
+        recurse = case m of
+            MLet s mv me -> MLet s mv (f >:= me)
+            MIf ma me me' -> MIf ma (f >:= me) (f >:= me')
+            MReturn ma -> MReturn ma
 
 monadicFormError :: String -> a
 monadicFormError s = internalError ("Could not convert to monadic form: " ++ s)
@@ -87,8 +112,8 @@ getMValue a k = case a of
             put (i+1)
             return (show i ++ "val")
 
-toMonadicFormImpl :: MContEnv -> MVarEnv -> AST -> State Int MExpr
-toMonadicFormImpl env ve a = case a of
+toMonadicFormImpl :: MContEnv -> AST -> State Int MExpr
+toMonadicFormImpl env a = case a of
     -- Values
     ABool _ -> trivial
     AInt _ -> trivial
@@ -110,8 +135,8 @@ toMonadicFormImpl env ve a = case a of
         recWithCont x (ContInline y a2) a1
     AApp (AFun x a1) (AVar k) -> case env Map.!? k of
         Just p -> recWithCont x p a1
-        Nothing -> recReplace x (MVar k) a1
-    AApp (AFun x a1) a2 -> getMValue a2 (\p -> recReplace x p a1)
+        Nothing -> MLet x (MJust $ MVar k) <$> toMonadicFormImpl env a1
+    AApp (AFun x a1) a2 -> getMValue a2 (\p -> MLet x (MJust p) <$> toMonadicFormImpl env a1)
     -- Environment continuations
     AApp (AVar k) ast -> case env Map.!? k of
         Just (ContInline x a1) -> recOn (AApp (AFun x a1) ast)
@@ -122,9 +147,16 @@ toMonadicFormImpl env ve a = case a of
     _ -> monadicFormError ("encountered invalid expression: " ++ show a)
     where
         trivial = getMValue a (return . MReturn)
-        recOn = toMonadicFormImpl env ve
-        recWithCont x k = toMonadicFormImpl (Map.insert x k env) ve
-        recReplace x b = toMonadicFormImpl env (Map.insert x b ve)
+        recOn = toMonadicFormImpl env
+        recWithCont x k = toMonadicFormImpl (Map.insert x k env)
 
+-- Takes Astra in Continuation Form and converts it to Mona.
 toMonadicForm :: String -> AST -> MExpr
-toMonadicForm k ast = evalState (toMonadicFormImpl (Map.singleton k ContReturn) Map.empty ast) 0
+toMonadicForm k ast = evalState (toMonadicFormImpl (Map.singleton k ContReturn) ast) 0
+
+astraToMona :: AST -> Map String MonaFunction
+astraToMona ast = Map.mapWithKey translateChunk $ toContinuationForm ast
+    where
+        translateChunk name (fv,a) = case a of
+            (AFun x (AFun k a')) -> MonaFunction { getName = name, getFV = fv, getArg = x, getBody = toMonadicForm k a' }
+            _ -> internalError $ "Could not translate to Mona because Astra was not in continuation form:\n" ++ show ast

@@ -10,6 +10,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Bifunctor as Bifunctor
 import Control.Monad.Trans.State.Strict (State, state, runState, modify)
 import Lumina.Utils (fastNub, untilFixedPoint)
+import Lumina.Middleend.Astra.ElimShadowing (elimShadowing)
 
 -- GlobalisedFunction is of the form (captured variables, expression with no inner functions)
 type GlobalisedFunction = ([String], AST)
@@ -77,8 +78,12 @@ allToCPS (i, env) f (fv, ast) =
  - every non-continuation function has a name (i.e. the only lambdas are 
  - continuations) and the body of every function is in continuation-passing
  - style.
+ - 
+ - To preserve correctness of code, shadowing must also be eliminated (to 
+ - distinguish between environment and local variables). For a counterexample,
+ - refer to test "shadowing" in LuminaCodeTest
  -}
 toContinuationForm :: AST -> FunctionEnv
 toContinuationForm ast =
-    let env = globaliseFunctions ast
+    let env = globaliseFunctions $ elimShadowing ast
     in snd $ Map.foldlWithKey allToCPS (0, Map.empty) env

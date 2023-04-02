@@ -9,13 +9,13 @@ import Lumina.Utils (hasDuplicates, indent)
 import Lumina.Frontend.Parser (preprocessLumina)
 import Lumina.Frontend.Shortcuts (getAST, loadParserFrom)
 import Lumina.Interpreter.AstraInterpreter (eval, getValue)
-import Lumina.Middleend.Shortcuts (transform, toOptContinuationForm)
-import Lumina.Middleend.Astra.HoistFunctions (globaliseFunctions)
-import Lumina.Middleend.Mona.Mona (toMonadicForm)
+import Lumina.Middleend.Shortcuts (transform, optMonaProgram)
+import Lumina.Middleend.Astra.Astra (AST(..))
+import Lumina.Middleend.Astra.HoistFunctions (globaliseFunctions, toContinuationForm)
+import Lumina.Middleend.Mona.Mona (toMonadicForm, astraToMona)
 
 import qualified Data.Map.Strict as Map
 import qualified Data.Bifunctor as Bifunctor
-import Lumina.Middleend.Astra.Astra (AST(..))
 import Control.Monad (forM_)
 import Data.List (intercalate)
 
@@ -77,10 +77,8 @@ demoMona = do
     putStrLn "Enter Lumina code and I'll output the monadic form representation. Press CTRL-D when you're done."
     inp <- getContents
     let a = fst $ getAST pars inp
-    let env = Map.map (\(fv, (AFun x (AFun k a))) -> (fv, x, toMonadicForm k a)) $ toOptContinuationForm a
-    forM_ (Map.toList env) $ \(k, (fv, x, mf)) -> do
-        putStrLn $ "define " ++ k ++ "[" ++ intercalate ", " fv ++ "](" ++ x ++ ") ="
-        putStrLn $ indent $ show mf
+    let env = optMonaProgram (astraToMona a)
+    forM_ (Map.toList env) (putStrLn . show . snd)
 
 
 main :: IO ()

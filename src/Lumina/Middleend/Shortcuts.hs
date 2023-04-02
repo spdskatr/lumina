@@ -1,19 +1,21 @@
-module Lumina.Middleend.Shortcuts (transform, toOptContinuationForm) where
+module Lumina.Middleend.Shortcuts (transform, optMona, optMonaProgram) where
 
 import Lumina.Middleend.Astra.CPS (toCPS)
-import Lumina.Middleend.Astra.Astra (AST)
+import Lumina.Middleend.Astra.Astra (AST (..))
+import Lumina.Middleend.Mona.Mona (MExpr, MonaFunction (MonaFunction))
 import Lumina.Utils (untilFixedPoint)
-import Lumina.Middleend.Astra.HoistFunctions (FunctionEnv, toContinuationForm)
-import Lumina.Middleend.Astra.ElimShadowing (elimShadowing)
+import Lumina.Middleend.Mona.ElimRenames (elimRenames)
+import Lumina.Middleend.Mona.OptimiseArith (optimiseArith)
+
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 
 transform :: AST -> AST
 transform = toCPS
 
--- Return an eta-redex eliminated Continuation Form.
--- Temporarily disabled because I still can't decide.
--- Eta-redexes are useful for the time being since they leave each function in
--- a nice form.
-toOptContinuationForm :: AST -> FunctionEnv
-toOptContinuationForm ast =
-    let fs = toContinuationForm $ elimShadowing ast
-    in fs
+optMona :: MExpr -> MExpr
+optMona = untilFixedPoint (optimiseArith . elimRenames)
+
+optMonaProgram :: Map String MonaFunction -> Map String MonaFunction
+optMonaProgram = Map.map $ \(MonaFunction f fv x body) ->
+    MonaFunction f fv x (optMona body)

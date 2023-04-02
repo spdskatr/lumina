@@ -3,7 +3,7 @@ module LuminaCodeTest (runCodeTest) where
 
 import Lumina.Frontend.Shortcuts (loadParserFrom, getAST)
 import Lumina.Interpreter.AstraInterpreter (Value (..), eval, getValue, getValueCF)
-import Lumina.Middleend.Shortcuts (transform, toOptContinuationForm)
+import Lumina.Middleend.Shortcuts (transform)
 import Lumina.Frontend.ParserGen (LRParser)
 import Lumina.Frontend.Lexer (TokenTag)
 import Lumina.Frontend.LuminaGrammar (LNT)
@@ -11,10 +11,7 @@ import Lumina.Middleend.Astra.Astra (AST (..), freeVars, (><>))
 
 import Data.Set (Set)
 import qualified Data.Set as Set
-import qualified Data.Map.Strict as Map
 import Control.Monad (forM_)
-import Lumina.Middleend.Astra.HoistFunctions (FunctionEnv)
-import Lumina.Middleend.Astra.Astra (AST(..))
 
 type TestCase = (String, String, Value)
 
@@ -103,17 +100,6 @@ testFreeVars e (name, code, _) =
         [] -> Right ()
         l -> Left $ "(" ++ show (length l) ++ " error(s) total) " ++ head l
 
-testCFWellFormed :: (String -> FunctionEnv) -> TestCase -> Either String ()
-testCFWellFormed p (name, code, _) =
-    let fs = p code
-    in forM_ (Map.toList fs) $ \(f, (fv, ast)) ->
-        let fv' = freeVars ast
-        in forM_ fv' $ \v ->
-            if v `elem` fv || Map.member v fs then
-                Right ()
-            else
-                Left $ "testCFWellFormed " ++ name ++ " failed; " ++ f ++ ":  free variable " ++ v ++ " not found"
-
 regressionTest :: String -> (String -> Value) -> TestCase -> Either String ()
 regressionTest codename e (name, code, val) =
     let res = e code in
@@ -125,11 +111,11 @@ testWithEvaluator codename e = do
 
 allTests :: LRParser LNT TokenTag -> Either String ()
 allTests lr = do
-    testWithEvaluator "interp" (fst . eval lr)
-    testWithEvaluator "interpCPS" (getValue . transform . fst . getAST lr)
-    forM_ testCases $ testCFWellFormed (toOptContinuationForm . fst . getAST lr)
-    testWithEvaluator "interpContForm" (getValueCF . fst . getAST lr)
     forM_ testCases $ testFreeVars (fst . getAST lr)
+    testWithEvaluator "interp" (fst . eval lr)
+    forM_ testCases $ testFreeVars (transform . fst . getAST lr)
+    testWithEvaluator "interpCPS" (getValue . transform . fst . getAST lr)
+    testWithEvaluator "interpContForm" (getValueCF . fst . getAST lr)
 
 runCodeTest :: IO ()
 runCodeTest = do

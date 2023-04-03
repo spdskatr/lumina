@@ -58,7 +58,6 @@ data MValue
     | MUnary UnaryOp MAtom
     | MBinary BinaryOp MAtom MAtom
     | MApp MAtom MAtom
-    | MAssign MAtom MAtom
     deriving Eq
 
 instance Show MValue where
@@ -66,16 +65,17 @@ instance Show MValue where
     show (MUnary uo val) = show uo ++ show val
     show (MBinary bo v1 v2) = "(" ++ show v1 ++ " " ++ show bo ++ " " ++ show v2 ++ ")"
     show (MApp v1 v2) = show v1 ++ " " ++ show v2
-    show (MAssign v1 v2) = show v1 ++ " := " ++ show v2
 
 data MExpr
     = MLet String MValue MExpr
+    | MAssign MAtom MAtom MExpr
     | MIf MAtom MExpr MExpr
     | MReturn MAtom
     deriving Eq
 
 instance Show MExpr where
     show (MLet s v ex) = "let " ++ s ++ " = " ++ show v ++ "\n" ++ show ex
+    show (MAssign v1 v2 ex) = "set " ++ show v1 ++ " := " ++ show v2 ++ "\n" ++ show ex
     show (MIf v e1 e2) = "if " ++ show v ++ " then\n" ++ indent (show e1) ++ "else\n" ++ indent (show e2)
     show (MReturn v) = "return " ++ show v
 
@@ -84,6 +84,7 @@ f >:= m = f m `orElse` recurse
     where
         recurse = case m of
             MLet s mv me -> MLet s mv (f >:= me)
+            MAssign ma ma' me -> MAssign ma ma' me
             MIf ma me me' -> MIf ma (f >:= me) (f >:= me')
             MReturn ma -> MReturn ma
 
@@ -104,7 +105,7 @@ getMValue a k = case a of
         getMValue ast1 (\r -> getMValue ast2 (\s -> MLet t (MBinary bo r s) <$> k (MVar t)))
     AAssign ast1 ast2 -> do
         t <- tmpVar
-        getMValue ast1 (\r -> getMValue ast2 (\s -> MLet t (MAssign r s) <$> k (MVar t)))
+        getMValue ast1 (\r -> getMValue ast2 (\s -> MAssign r s . MLet t (MJust MUnit) <$> k (MVar t)))
     _ -> monadicFormError ("Could got get MValue - AST contains function/control nodes: " ++ show a)
     where
         tmpVar = do

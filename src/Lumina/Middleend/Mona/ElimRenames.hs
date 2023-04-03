@@ -15,24 +15,24 @@ elimRenamesImpl env ex = case ex of
         let subMV mv' = MLet s mv' (recurse me)
         in case processVal mv of
             MJust ma ->
-                elimRenamesImpl (Map.insert s (process ma) env) me
+                -- Expression will get removed in dead code elimination
+                MLet s mv (elimRenamesImpl (Map.insert s (process ma) env) me)
             MUnary uo ma ->
                 subMV (MUnary uo (process ma))
             MBinary bo ma ma' ->
                 subMV (MBinary bo (process ma) (process ma'))
             MApp ma ma' ->
                 subMV (MApp (process ma) (process ma'))
-            MAssign ma ma' ->
-                subMV (MAssign (process ma) (process ma'))
     MIf ma me me' ->
         MIf (process ma) (recurse me) (recurse me')
     MReturn ma -> MReturn (process ma)
+    MAssign ma ma' me ->
+        MAssign (process ma) (process ma') (recurse me)
     where
         processVal (MJust a) = MJust (process a)
         processVal (MUnary uo a) = MUnary uo (process a)
         processVal (MBinary bo a a') = MBinary bo (process a) (process a')
         processVal (MApp a a') = MApp (process a) (process a')
-        processVal (MAssign a a') = MAssign (process a) (process a')
 
         recurse = elimRenamesImpl env
 

@@ -9,12 +9,13 @@ import Lumina.Middleend.Mona.OptimiseArith (optimiseArith)
 
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Lumina.Middleend.Mona.ElimDeadCode (elimDeadCode)
 
 transform :: AST -> AST
 transform = toCPS
 
 optMona :: MExpr -> MExpr
-optMona = untilFixedPoint (optimiseArith . elimRenames)
+optMona = untilFixedPoint (elimDeadCode . optimiseArith . elimRenames)
 
 optMonaProgram :: Map String MonaFunction -> Map String MonaFunction
 optMonaProgram = Map.map $ \(MonaFunction f fv x body) ->

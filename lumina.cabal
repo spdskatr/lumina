@@ -35,6 +35,7 @@ library
       Lumina.Middleend.Astra.CPS
       Lumina.Middleend.Astra.ElimShadowing
       Lumina.Middleend.Astra.HoistFunctions
+      Lumina.Middleend.Mona.ElimDeadCode
       Lumina.Middleend.Mona.ElimRenames
       Lumina.Middleend.Mona.Mona
       Lumina.Middleend.Mona.OptimiseArith

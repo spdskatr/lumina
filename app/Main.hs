@@ -5,19 +5,16 @@ module Main (main) where
 import Lumina.Frontend.Lexer (getAllTokensLumina)
 import Lumina.Frontend.ParserGen (generateParser, LRParser (LRParser), ppAssocList)
 import Lumina.Frontend.LuminaGrammar (luminaGrammar)
-import Lumina.Utils (hasDuplicates, indent)
+import Lumina.Utils (hasDuplicates)
 import Lumina.Frontend.Parser (preprocessLumina)
 import Lumina.Frontend.Shortcuts (getAST, loadParserFrom)
-import Lumina.Interpreter.AstraInterpreter (eval, getValue)
+import Lumina.Interpreter.AstraInterpreter (eval)
 import Lumina.Middleend.Shortcuts (transform, optMonaProgram)
-import Lumina.Middleend.Astra.Astra (AST(..))
-import Lumina.Middleend.Astra.HoistFunctions (globaliseFunctions, toContinuationForm)
-import Lumina.Middleend.Mona.Mona (toMonadicForm, astraToMona)
+import Lumina.Middleend.Astra.HoistFunctions (globaliseFunctions)
+import Lumina.Middleend.Mona.Mona (astraToMona)
 
 import qualified Data.Map.Strict as Map
-import qualified Data.Bifunctor as Bifunctor
 import Control.Monad (forM_)
-import Data.List (intercalate)
 
 -- WARNING - this may take several minutes to run
 genAndPrintLR1Parser :: IO ()

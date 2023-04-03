@@ -1,4 +1,4 @@
-module Lumina.Middleend.Mona.ElimRenames (elimRenames) where
+module Lumina.Middleend.Mona.PropagateConsts (propagateConsts) where
 import Lumina.Middleend.Mona.Mona (MAtom (..), MExpr (..), MValue (..))
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -6,17 +6,17 @@ import Lumina.Utils (orElse)
 
 type RenameEnv = Map String MAtom
 
-elimRenames :: MExpr -> MExpr
-elimRenames = elimRenamesImpl Map.empty
+propagateConsts :: MExpr -> MExpr
+propagateConsts = propagateConstsImpl Map.empty
 
-elimRenamesImpl :: RenameEnv -> MExpr -> MExpr
-elimRenamesImpl env ex = case ex of
+propagateConstsImpl :: RenameEnv -> MExpr -> MExpr
+propagateConstsImpl env ex = case ex of
     MLet s mv me ->
         let subMV mv' = MLet s mv' (recurse me)
         in case processVal mv of
             MJust ma ->
                 -- Expression will get removed in dead code elimination
-                MLet s mv (elimRenamesImpl (Map.insert s (process ma) env) me)
+                MLet s mv (propagateConstsImpl (Map.insert s (process ma) env) me)
             MUnary uo ma ->
                 subMV (MUnary uo (process ma))
             MBinary bo ma ma' ->
@@ -34,7 +34,7 @@ elimRenamesImpl env ex = case ex of
         processVal (MBinary bo a a') = MBinary bo (process a) (process a')
         processVal (MApp a a') = MApp (process a) (process a')
 
-        recurse = elimRenamesImpl env
+        recurse = propagateConstsImpl env
 
         process (MVar x) = env Map.!? x `orElse` MVar x
         process a = a

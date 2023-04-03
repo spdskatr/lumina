@@ -106,3 +106,17 @@ with fun fibcps (x : int) : ((int -> int) -> int) =
 do
     fibcps 25 (fun (x:int) : int -> x end)
 end
+
+with x : int = 1 do
+    with fun f (x : int) = x do
+        f x
+    end
+end
+
+with fun f (x:int) : int = x do
+    with fun g (f : (int -> int)) : int = f 5 do
+        with fun h (x:int) : int = x + 1 do
+            g h
+        end
+    end
+end

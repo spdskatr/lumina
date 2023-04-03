@@ -1,8 +1,8 @@
-import ToyLanguage1 (demoArithGrammar)
-import ToyLanguage2 (demoLRValueGrammar)
-import ParserGenTest (runPGTest)
-import LuminaGrammarTest (runLGTest)
-import LuminaCodeTest (runCodeTest)
+import Lumina.Tests.ToyLanguage1 (demoArithGrammar)
+import Lumina.Tests.ToyLanguage2 (demoLRValueGrammar)
+import Lumina.Tests.ParserGenTest (runPGTest)
+import Lumina.Tests.LuminaGrammarTest (runLGTest)
+import Lumina.Tests.LuminaCodeTest (runCodeTest)
 
 main :: IO ()
 main = do

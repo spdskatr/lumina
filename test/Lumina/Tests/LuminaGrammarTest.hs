@@ -1,4 +1,4 @@
-module LuminaGrammarTest (runLGTest) where
+module Lumina.Tests.LuminaGrammarTest (runLGTest) where
 
 import Lumina.Frontend.Lexer (Token(..), TokenTag)
 import Lumina.Frontend.ParserGen (Production(..), NonTerminal(..))
@@ -19,4 +19,4 @@ runLGTest :: IO ()
 runLGTest = do
     case forM_ luminaAnnotatedGrammar test_GrammarCanAcceptRightNumberOfSymbols of
         Left err -> error err
-        Right _ -> putStrLn "LuminaGrammarTest PASS"
+        Right _ -> putStrLn "Lumina.Tests.LuminaGrammarTest PASS"

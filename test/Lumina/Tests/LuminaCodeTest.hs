@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
-module LuminaCodeTest (runCodeTest) where
+module Lumina.Tests.LuminaCodeTest (runCodeTest) where
 
 import Lumina.Frontend.Shortcuts (loadParserFrom, getAST)
 import Lumina.Interpreter.AstraInterpreter (Value (..), eval, getValue, getValueCF)
@@ -83,11 +83,11 @@ checkFreeVarsAgreeWithEnv :: String -> Set String -> AST -> [String]
 checkFreeVarsAgreeWithEnv name env ast =
     case filter (`Set.notMember` env) (freeVars ast) of
         [] -> case ast of
-            AFun x a1 -> checkFreeVarsAgreeWithEnv name (Set.insert x env) a1
-            ALet x a1 a2 ->
+            AFun x _ a1 _ -> checkFreeVarsAgreeWithEnv name (Set.insert x env) a1
+            ALet x _ a1 a2 _ ->
                 let env2 = Set.insert x env
                 in checkFreeVarsAgreeWithEnv name env a1 <> checkFreeVarsAgreeWithEnv name env2 a2
-            ALetFun f x a1 a2 ->
+            ALetFun f x _ a1 a2 _ ->
                 let envF = Set.insert f env
                     envX = Set.insert x envF
                 in checkFreeVarsAgreeWithEnv name envX a1 <> checkFreeVarsAgreeWithEnv name envF a2
@@ -122,4 +122,4 @@ runCodeTest = do
     lr <- loadParserFrom "data/lr1.txt"
     case allTests lr of
         Left err -> error err
-        Right _ -> putStrLn "LuminaCodeTest PASS"
+        Right _ -> putStrLn "Lumina.Tests.LuminaCodeTest PASS"

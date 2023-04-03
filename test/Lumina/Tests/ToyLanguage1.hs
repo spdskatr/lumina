@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase, MultiParamTypeClasses #-}
 
-module ToyLanguage1 (demoArithGrammar) where
+module Lumina.Tests.ToyLanguage1 (demoArithGrammar) where
 
 import Lumina.Frontend.Lexer (Tag, Taggable(..))
 import Lumina.Frontend.ParserGen (generateParser, Production(..), GrammarSymbol(..), NonTerminal(..), Terminal(..))

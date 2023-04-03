@@ -1,10 +1,11 @@
 module Lumina.Frontend.Shortcuts (getAST, loadParserFrom) where
 
 import Lumina.Frontend.ParserGen (LRParser)
+import Lumina.Frontend.Parser (toParserArray, preprocessLumina, producePAST)
 import Lumina.Frontend.LuminaGrammar (LNT)
 import Lumina.Frontend.Lexer (TokenTag, getAllTokensLumina)
-import Lumina.Middleend.Astra.Astra (AST, LuminaType, toAST)
-import Lumina.Frontend.Parser (toParserArray, preprocessLumina, producePAST)
+import Lumina.Middleend.Astra.Astra (AST, toAST)
+import Lumina.Middleend.Typing (LuminaType(..))
 
 -- The power of the entire frontend... in the palm of your hand
 getAST :: LRParser LNT TokenTag -> String -> (AST, LuminaType)

@@ -40,6 +40,7 @@ library
       Lumina.Middleend.Mona.OptimiseArith
       Lumina.Middleend.Mona.PropagateConsts
       Lumina.Middleend.Shortcuts
+      Lumina.Middleend.Typing
       Lumina.UnsafeUtils
       Lumina.Utils
   other-modules:
@@ -77,11 +78,11 @@ test-suite lumina-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      LuminaCodeTest
-      LuminaGrammarTest
-      ParserGenTest
-      ToyLanguage1
-      ToyLanguage2
+      Lumina.Tests.LuminaCodeTest
+      Lumina.Tests.LuminaGrammarTest
+      Lumina.Tests.ParserGenTest
+      Lumina.Tests.ToyLanguage1
+      Lumina.Tests.ToyLanguage2
       Paths_lumina
   hs-source-dirs:
       test

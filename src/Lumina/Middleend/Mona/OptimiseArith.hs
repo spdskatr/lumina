@@ -40,6 +40,7 @@ optimiseArith ex = optImpl >:= ex
                     MBinary OpSub e (MInt a) -> optAdd (-a) e
                     MBinary OpMul (MInt a) e -> optMul a e
                     MBinary OpMul e (MInt a) -> optMul a e
+                    MBinary OpLessThan (MInt a) (MInt b) -> justAtom (MBool (a < b))
                     MBinary OpIntEqual (MInt a) (MInt b) -> justAtom (MBool (a == b))
                     MBinary op (MBool a) e -> optBoolOp op a e
                     MBinary op e (MBool a) -> optBoolOp op a e

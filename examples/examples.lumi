@@ -96,9 +96,8 @@ end
 
 with fun fibcps (x : int) : ((int -> int) -> int) =
     fun (k : (int -> int)) : int -> 
-        with x case 
-        | 0 -> k 1 
-        | 1 -> k 1
+        with (x = 0) || (x = 1) case 
+        | true -> k 1 
         | _ -> 
             fibcps (x-1) (fun (r : int) : int -> 
                 fibcps (x-2) (fun (s : int) : int -> k (r+s) end) end)

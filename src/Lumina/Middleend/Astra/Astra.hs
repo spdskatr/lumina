@@ -1,5 +1,5 @@
 module Lumina.Middleend.Astra.Astra (
-    ASTType (..),
+    LuminaType (..),
     TypeEnv,
     BinaryOp (..),
     UnaryOp (..),
@@ -21,15 +21,15 @@ import Control.Monad (liftM2)
 
 import qualified Data.Map.Strict as Map
 
-data ASTType
+data LuminaType
     = TInt
     | TBool
     | TUnit
-    | TRef ASTType
-    | TFun ASTType ASTType
+    | TRef LuminaType
+    | TFun LuminaType LuminaType
     deriving (Eq, Show)
 
-type TypeEnv = Map String ASTType
+type TypeEnv = Map String LuminaType
 
 data BinaryOp
     = OpAdd
@@ -193,32 +193,32 @@ f ><> ast = case ast of
 typeError :: String -> TranslationRes a
 typeError s = Left $ "Type error: " ++ s
 
-applyType :: ASTType -> ASTType -> TranslationRes ASTType
+applyType :: LuminaType -> LuminaType -> TranslationRes LuminaType
 applyType t1 t2 = case t1 of
     TFun t2' t3 | t2 == t2' -> return t3
     _ -> typeError ("Unmatched types " ++ show t1 ++ " and " ++ show t2)
 
-checkInts :: ASTType -> ASTType -> TranslationRes ASTType
+checkInts :: LuminaType -> LuminaType -> TranslationRes LuminaType
 checkInts t1 t2 = case (t1, t2) of
     (TInt, TInt) -> return TInt
     _ -> typeError ("Arguments passed to arithmetic operation must be of integer type; found " ++ show (t1, t2) ++ " instead")
 
-checkBools :: ASTType -> ASTType -> TranslationRes ASTType
+checkBools :: LuminaType -> LuminaType -> TranslationRes LuminaType
 checkBools t1 t2 = case (t1, t2) of
     (TBool, TBool) -> return TBool
     _ -> typeError ("Arguments passed to boolean operation must be of boolean type; found " ++ show (t1, t2) ++ " instead")
 
-checkComparison :: ASTType -> ASTType -> TranslationRes ASTType
+checkComparison :: LuminaType -> LuminaType -> TranslationRes LuminaType
 checkComparison t1 t2 = case (t1, t2) of
     (TInt, TInt) -> return TBool
     _ -> typeError ("Arguments passed to comparison must be of integer type; found " ++ show (t1, t2) ++ " instead")
 
-checkAssign :: ASTType -> ASTType -> TranslationRes ASTType
+checkAssign :: LuminaType -> LuminaType -> TranslationRes LuminaType
 checkAssign t1 t2 = case t1 of
     (TRef t2') | t2' == t2 -> return TUnit
     _ -> typeError ("Expecting " ++ show (TRef t2) ++ " in assignment; found " ++ show t1 ++ " instead")
 
-getType :: PAST -> TranslationRes ASTType
+getType :: PAST -> TranslationRes LuminaType
 getType PTInt = return TInt
 getType PTBool = return TBool
 getType PTUnit = return TUnit
@@ -226,12 +226,12 @@ getType (PTRef x) = TRef <$> getType x
 getType (PTFun x y) = liftM2 TFun (getType x) (getType y)
 getType x = typeError ("Expression is not a type: " ++ show x)
 
-getEqualsOp :: ASTType -> ASTType -> Maybe BinaryOp
+getEqualsOp :: LuminaType -> LuminaType -> Maybe BinaryOp
 getEqualsOp TInt TInt = Just OpIntEqual
 getEqualsOp TBool TBool = Just OpBoolEqual
 getEqualsOp _ _ = Nothing
 
-makeCases :: (String, ASTType) -> TypeEnv -> [(PAST, PAST)] -> TranslationRes (AST, ASTType)
+makeCases :: (String, LuminaType) -> TypeEnv -> [(PAST, PAST)] -> TranslationRes (AST, LuminaType)
 makeCases _ _ [] = typeError "No matches in case expression"
 makeCases (s,t) env [(pa,pb)] =
     case pa of
@@ -252,7 +252,7 @@ makeCases (s,t) env ((pa,pb):rest) = do
         else 
             return (AIf (ABinaryOp op (AVar s) a1) a2 aa, t2)
 
-translate :: TypeEnv -> PAST -> TranslationRes (AST, ASTType)
+translate :: TypeEnv -> PAST -> TranslationRes (AST, LuminaType)
 translate env past = case past of
     PToken _ -> internalError "Found lonely token"
     PZero -> return (AInt 0, TInt)
@@ -371,7 +371,7 @@ translate env past = case past of
     PCaseList _ -> internalError "Found lonely CaseList"
     _ -> internalError $ "Bad PAST: " ++ show past
 
-toAST :: PAST -> (AST, ASTType)
+toAST :: PAST -> (AST, LuminaType)
 toAST past = case translate Map.empty past of
     Left s -> error s
     Right a -> a

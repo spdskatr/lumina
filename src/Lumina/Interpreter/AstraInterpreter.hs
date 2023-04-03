@@ -15,7 +15,7 @@ import Control.Monad.Trans.State.Strict (State, evalState, get, put)
 import Data.Ix (Ix)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Lumina.Middleend.Astra.Astra (AST (..), UnaryOp (..), BinaryOp (..), ASTType)
+import Lumina.Middleend.Astra.Astra (AST (..), UnaryOp (..), BinaryOp (..), LuminaType)
 import Lumina.Utils (internalError, orElse)
 import Lumina.Frontend.ParserGen (LRParser)
 import Lumina.Frontend.Lexer (TokenTag)
@@ -158,7 +158,7 @@ getValueCF ast =
     let fs = toContinuationForm ast
     in evalState (interpContinuationForm fs) Map.empty
 
-eval :: LRParser LNT TokenTag -> String -> (Value, ASTType)
+eval :: LRParser LNT TokenTag -> String -> (Value, LuminaType)
 eval lr code = 
     let (ast, astt) = getAST lr code
     in (getValue ast, astt)

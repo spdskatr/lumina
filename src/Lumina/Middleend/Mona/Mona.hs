@@ -127,8 +127,9 @@ toMonadicFormImpl env a = case a of
         getMValue a1 (\p -> getMValue a2 (\q -> MLet x (MApp p q) <$> recOn a3))
     AApp (AApp a1 a2) (AVar k) -> case env Map.!? k of
         Just (ContInline x a3) -> recOn (AApp (AApp a1 a2) (AFun x a3))
-        Just ContReturn ->
-            getMValue a1 (\p -> getMValue a2 (\q -> return $ MLet "0ret" (MApp p q) (MReturn (MVar "0ret"))))
+        Just ContReturn -> do
+            ret <- retVar
+            getMValue a1 (\p -> getMValue a2 (\q -> return $ MLet ret (MApp p q) (MReturn (MVar ret))))
         Nothing -> monadicFormError ("could not find continuation: " ++ show k)
     -- Jump continuations
     AApp (AFun x a1) (AFun y a2) ->
@@ -149,6 +150,10 @@ toMonadicFormImpl env a = case a of
         trivial = getMValue a (return . MReturn)
         recOn = toMonadicFormImpl env
         recWithCont x k = toMonadicFormImpl (Map.insert x k env)
+        retVar = do
+            i <- get
+            put (i+1)
+            return (show i ++ "ret")
 
 -- Takes Astra in Continuation Form and converts it to Mona.
 toMonadicForm :: String -> AST -> MExpr
@@ -159,4 +164,4 @@ astraToMona ast = Map.mapWithKey translateChunk $ toContinuationForm ast
     where
         translateChunk name (fv,a) = case a of
             (AFun x (AFun k a')) -> MonaFunction { getName = name, getFV = fv, getArg = x, getBody = toMonadicForm k a' }
-            _ -> internalError $ "Could not translate to Mona because Astra was not in continuation form:\n" ++ show ast
+            _ -> internalError $ "Could not translate to Mona because Astra was not in continuation form:\n" ++ show a

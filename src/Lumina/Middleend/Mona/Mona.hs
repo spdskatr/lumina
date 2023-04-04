@@ -6,9 +6,9 @@ import Lumina.Utils (internalError, indent, orElse)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Control.Monad.Trans.State.Strict (State, evalState, get, put)
-import Lumina.Middleend.Astra.HoistFunctions (globaliseFunctions)
+import Lumina.Middleend.Astra.HoistFunctions (globaliseFunctions, TypedVar)
 import Data.List (intercalate)
-import Lumina.Middleend.Typing (LuminaType (..))
+import Lumina.Middleend.Typing (LuminaType (..), getReturnType)
 import Lumina.Middleend.Astra.ElimShadowing (elimShadowing)
 
 {-
@@ -27,14 +27,16 @@ import Lumina.Middleend.Astra.ElimShadowing (elimShadowing)
 
 data MonaFunction = MonaFunction
     { getName :: String
-    , getFV :: [String]
+    , getFV :: [TypedVar]
     , getArg :: String
+    , getArgType :: LuminaType
+    , getResultType :: LuminaType
     , getBody :: MExpr
     }
 
 instance Show MonaFunction where
-    show (MonaFunction f fv x e) =
-        "define " ++ f ++ "[" ++ intercalate ", " fv ++ "](" ++ x ++ ") =\n" ++ indent (show e)
+    show (MonaFunction f fv x t t' e) =
+        "define " ++ f ++ "[" ++ intercalate ", " (map show fv) ++ "](" ++ x ++ " : " ++ show t ++ ") : " ++ show t' ++ " =\n" ++ indent (show e)
 
 data MAtom
     = MVar String
@@ -142,5 +144,5 @@ astraToMona :: AST -> Map String MonaFunction
 astraToMona ast = Map.mapWithKey translateChunk $ globaliseFunctions $ elimShadowing ast
     where
         translateChunk name (fv,a) = case a of
-            (AFun x _ a' _) -> MonaFunction { getName = name, getFV = fv, getArg = x, getBody = evalState (toMona a' (return . MReturn)) 0 }
+            (AFun x t a' t') -> MonaFunction name fv x t (getReturnType t') (evalState (toMona a' (return . MReturn)) 0)
             _ -> internalError $ "Could not translate to Mona function because expression is not a function:\n" ++ show a

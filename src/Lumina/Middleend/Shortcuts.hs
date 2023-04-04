@@ -13,5 +13,5 @@ optMona :: MExpr -> MExpr
 optMona = untilFixedPoint (elimDeadCode . optimiseArith . propagateConsts)
 
 optMonaProgram :: Map String MonaFunction -> Map String MonaFunction
-optMonaProgram = Map.map $ \(MonaFunction f fv x body) ->
-    MonaFunction f fv x (optMona body)
+optMonaProgram = Map.map $ \(MonaFunction f fv x t t' body) ->
+    MonaFunction f fv x t t' (optMona body)

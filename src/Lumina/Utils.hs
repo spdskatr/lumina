@@ -36,7 +36,7 @@ hasDuplicates l = let ks = sort $ map fst l in any (uncurry (==)) $ zip ks $ dro
 findDuplicateGroups :: (Ord a, Ord m) => [(a,m)] -> [[(a,m)]]
 findDuplicateGroups l = filter (\x -> length x > 1) $ groupBy ((==) `on` fst) $ sort l
 
-untilFixedPoint :: (Show a, Eq a) => (a -> a) -> a -> a
+untilFixedPoint :: (Eq a) => (a -> a) -> a -> a
 untilFixedPoint f x = let y = f x in if y == x then y else untilFixedPoint f y
 
 countUp :: [a] -> [(Int, a)]

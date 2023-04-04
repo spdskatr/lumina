@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-module Lumina.Middleend.Astra.HoistFunctions (GlobalisedFunction, FunctionEnv, globaliseFunctions) where
+module Lumina.Middleend.Astra.HoistFunctions (TypedVar (..), GlobalisedFunction, FunctionEnv, globaliseFunctions) where
 
 import Lumina.Middleend.Astra.Astra (AST (..), (>>:=), replaceVar, (><>), astraType)
 
@@ -10,9 +10,19 @@ import qualified Data.Bifunctor as Bifunctor
 import Control.Monad.Trans.State.Strict (State, state, runState, modify)
 import Lumina.Utils (fastNub, untilFixedPoint, internalError)
 import Lumina.Middleend.Typing (LuminaType(..))
+import Data.Function (on)
+
+data TypedVar = TypedVar {
+        getVarName :: String,
+        getVarType :: LuminaType 
+    } deriving Eq
+instance Ord TypedVar where
+    compare = compare `on` getVarName
+instance Show TypedVar where
+    show (TypedVar n t) = n ++ " : " ++ show t
 
 -- GlobalisedFunction is of the form (captured variables, expression with no inner functions)
-type GlobalisedFunction = ([String], AST)
+type GlobalisedFunction = ([TypedVar], AST)
 type FunctionEnv = Map String GlobalisedFunction
 type GlobaliseState a = State (Int, FunctionEnv) a
 
@@ -23,20 +33,20 @@ globalName name = state $ \(i, env) ->
 newGlobalFunc :: String -> GlobalisedFunction -> GlobaliseState ()
 newGlobalFunc name fd = modify $ Bifunctor.second $ Map.insert name fd
 
-allFreeVars :: FunctionEnv -> AST -> [String]
+allFreeVars :: FunctionEnv -> AST -> [TypedVar]
 allFreeVars env ast =
     case ast of
-        AVar x _ -> case Map.lookup x env of
-            Nothing -> [x]
+        AVar x t -> case Map.lookup x env of
+            Nothing -> [TypedVar x t]
             Just (fv, _) -> fv
-        AFun x _ ast1 _ -> filter (/= x) $ allFreeVars env ast1
+        AFun x _ ast1 _ -> filter (\(TypedVar y _) -> x /= y) $ allFreeVars env ast1
         ALet x _ ast1 ast2 _ ->
             let fv1 = allFreeVars env ast1
-                fv2 = filter (/= x) $ allFreeVars env ast2
+                fv2 = filter (\(TypedVar y _) -> x /= y) $ allFreeVars env ast2
             in fastNub $ fv1 ++ fv2
         ALetFun f x _ ast1 ast2 _ -> 
-            let fv1 = filter (\y -> y /= x && y /= f) $ allFreeVars env ast1
-                fv2 = filter (/= f) $ allFreeVars env ast2
+            let fv1 = filter (\(TypedVar y _) -> y /= x && y /= f) $ allFreeVars env ast1
+                fv2 = filter (\(TypedVar y _) -> y /= f) $ allFreeVars env ast2
             in fastNub $ fv1 ++ fv2
         _ -> fastNub $ allFreeVars env ><> ast
 

@@ -1,6 +1,6 @@
-module Lumina.Middleend.Mona.Mona (MAtom (..), MValue (..), MExpr (..), MonaFunction(..), (>:=), toMonadicForm, astraToMona) where
+module Lumina.Middleend.Mona.Mona (MAtom (..), MValue (..), MExpr (..), MonaFunction(..), (>:=), toMona, astraToMona) where
 
-import Lumina.Middleend.Astra.Astra (UnaryOp, BinaryOp, AST (..), astraType)
+import Lumina.Middleend.Astra.Astra (UnaryOp (..), BinaryOp (..), AST (..))
 import Lumina.Utils (internalError, indent, orElse)
 
 import Data.Map.Strict (Map)
@@ -25,15 +25,15 @@ import Lumina.Middleend.Astra.ElimShadowing (elimShadowing)
  - CPS form first.
  -}
 
-data MonaFunction = MonaFunction 
+data MonaFunction = MonaFunction
     { getName :: String
     , getFV :: [String]
     , getArg :: String
-    , getBody :: MExpr 
+    , getBody :: MExpr
     }
 
 instance Show MonaFunction where
-    show (MonaFunction f fv x e) = 
+    show (MonaFunction f fv x e) =
         "define " ++ f ++ "[" ++ intercalate ", " fv ++ "](" ++ x ++ ") =\n" ++ indent (show e)
 
 data MAtom
@@ -87,13 +87,60 @@ f >:= m = f m `orElse` recurse
 monadicFormError :: String -> a
 monadicFormError s = internalError ("Could not convert to monadic form: " ++ s)
 
--- Takes Astra in Continuation Form and converts it to Mona.
-toMonadicForm :: AST -> MExpr
-toMonadicForm ast = monadicFormError "not implemented"
+-- Takes Astra and converts it to Mona. We whizz past continuation-passing
+-- style along the way.
+toMona :: AST -> (MAtom -> State Int MExpr) -> State Int MExpr
+toMona ast k = case ast of
+    ABool b -> k (MBool b)
+    AInt n -> k (MInt n)
+    AUnit -> k MUnit
+    AVar s _ -> k (MVar s)
+    AApp a1 a2 t -> toMona a1 (\a1' -> toMona a2 (\a2' -> newLet (MApp a1' a2') t))
+    AUnaryOp uo a t -> toMona a $ \a' ->
+        let tres = case uo of
+                OpNot -> TBool
+                OpRef -> TRef t
+                OpBang -> case t of
+                    TRef t' -> t'
+                    _ -> monadicFormError $ "Dereferencing value of type " ++ show t ++ ", which is not a reference"
+        in newLet (MUnary uo a') tres
+    ABinaryOp OpAnd a1 a2 _ -> toMona a1 $ \a1' -> do
+        m2 <- toMona a2 k
+        m3 <- k (MBool False)
+        return $ MIf a1' m2 m3
+    ABinaryOp OpOr a1 a2 _ -> toMona a1 $ \a1' -> do
+        m2 <- toMona a2 k
+        m1 <- k (MBool True)
+        return $ MIf a1' m1 m2
+    ABinaryOp bo a1 a2 _ -> toMona a1 $ \a1' -> toMona a2 $ \a2' ->
+        let tres = case bo of
+              OpAdd -> TInt
+              OpSub -> TInt
+              OpMul -> TInt
+              OpLessThan -> TBool
+              OpIntEqual -> TBool
+              OpBoolEqual -> TBool
+        in newLet (MBinary bo a1' a2') tres
+    AAssign a1 a2 -> toMona a1 $ \a1' -> toMona a2 $ \a2' -> MAssign a1' a2' <$> k MUnit
+    AIf c a1 a2 _ -> toMona c $ \c' -> do
+        m1 <- toMona a1 k
+        m2 <- toMona a2 k
+        return $ MIf c' m1 m2
+    ALet s t a1 a2 _ -> toMona a1 $ \a1' -> MLet s t (MJust a1') <$> toMona a2 k
+    ASeq a1 a2 _ -> toMona a1 $ \_ -> toMona a2 k
+    AFun {} -> monadicFormError $ "Encountered lambda when trying to convert to Mona (this should never happen): " ++ show ast
+    ALetFun {} -> monadicFormError $ "Encountered inner function definition when trying to convert to Mona (this should never happen): " ++ show ast
+    where
+        newLet v t = do
+            i <- get
+            put (i+1)
+            let ident = show i ++ "v"
+            nx <- k (MVar ident)
+            return $ MLet ident t v nx
 
 astraToMona :: AST -> Map String MonaFunction
 astraToMona ast = Map.mapWithKey translateChunk $ globaliseFunctions $ elimShadowing ast
     where
         translateChunk name (fv,a) = case a of
-            (AFun x _ a' _) -> MonaFunction { getName = name, getFV = fv, getArg = x, getBody = toMonadicForm a' }
+            (AFun x _ a' _) -> MonaFunction { getName = name, getFV = fv, getArg = x, getBody = evalState (toMona a' (return . MReturn)) 0 }
             _ -> internalError $ "Could not translate to Mona function because expression is not a function:\n" ++ show a

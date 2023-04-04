@@ -32,7 +32,7 @@ optMul _ _ = Nothing
 optimiseArith :: MExpr -> MExpr
 optimiseArith ex = optImpl >:= ex
     where
-        optImpl (MLet s mv me) = 
+        optImpl (MLet s t mv me) = 
             let res = case mv of
                     MUnary OpNot a -> optNot a
                     MBinary OpAdd (MInt a) e -> optAdd a e
@@ -45,5 +45,5 @@ optimiseArith ex = optImpl >:= ex
                     MBinary op (MBool a) e -> optBoolOp op a e
                     MBinary op e (MBool a) -> optBoolOp op a e
                     _ -> Nothing
-            in (\mv' -> MLet s mv' me) <$> res
+            in (\mv' -> MLet s t mv' me) <$> res
         optImpl _ = Nothing

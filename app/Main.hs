@@ -10,7 +10,7 @@ import Lumina.Frontend.Parser (preprocessLumina)
 import Lumina.Frontend.Shortcuts (getAST, loadParserFrom)
 import Lumina.Interpreter.AstraInterpreter (eval)
 import Lumina.Middleend.Shortcuts (transform, optMonaProgram)
-import Lumina.Middleend.Astra.HoistFunctions (globaliseFunctions)
+import Lumina.Middleend.Astra.HoistFunctions (globaliseFunctions, toContinuationForm)
 import Lumina.Middleend.Mona.Mona (astraToMona)
 
 import qualified Data.Map.Strict as Map
@@ -68,6 +68,15 @@ demoGlobalisedForm = do
     let env = globaliseFunctions a
     ppAssocList $ Map.toList env
 
+demoContinuationForm :: IO ()
+demoContinuationForm = do
+    pars <- loadParserFrom "data/lr1.txt"
+    putStrLn "Enter Lumina code and I'll output the continuation form representation. Press CTRL-D when you're done."
+    inp <- getContents
+    let a = fst $ getAST pars inp
+    let env = toContinuationForm a
+    forM_ (Map.toList env) (putStrLn . show)
+
 demoMona :: IO ()
 demoMona = do
     pars <- loadParserFrom "data/lr1.txt"
@@ -86,7 +95,8 @@ main = do
     \ 4 - Demo Astra interpreter\n\
     \ 5 - Demo CPS transformation\n\
     \ 6 - Demo hoisted functions\n\
-    \ 7 - Demo Mona (Middleend IR)"
+    \ 7 - Demo hoisted + CPS\n\
+    \ 8 - Demo Mona (Middleend IR)"
     i <- readLn :: IO Int
     case i of
         1 -> genAndPrintLR1Parser
@@ -95,5 +105,6 @@ main = do
         4 -> demoInterpreter
         5 -> demoCPS
         6 -> demoGlobalisedForm
-        7 -> demoMona
+        7 -> demoContinuationForm
+        8 -> demoMona
         _ -> error $ "Unrecognised option " ++ show i

@@ -15,10 +15,10 @@ elimDeadCodeImpl (MIf ma me1 me2) =
     let (me1', vs1) = elimDeadCodeImpl me1
         (me2', vs2) = elimDeadCodeImpl me2
     in (MIf ma me1' me2', matchVar ma ++ vs1 ++ vs2)
-elimDeadCodeImpl (MLet s mv me) =
+elimDeadCodeImpl (MLet s t mv me) =
     let (me', vs) = elimDeadCodeImpl me
     in if s `elem` vs then
-        (MLet s mv me', matchVal mv ++ [x | x <- vs, x /= s])
+        (MLet s t mv me', matchVal mv ++ [x | x <- vs, x /= s])
     else
         (me', vs)
 

@@ -8,6 +8,7 @@ import qualified Data.Map.Strict as Map
 import Control.Monad.Trans.State.Strict (State, evalState, get, put)
 import Lumina.Middleend.Astra.HoistFunctions (toContinuationForm)
 import Data.List (intercalate)
+import Lumina.Middleend.Typing (LuminaType (..))
 
 {-
  - After hoisting all of our functions into a main environment and converting
@@ -24,7 +25,7 @@ import Data.List (intercalate)
  -}
 
 data ContType
-    = ContInline String AST
+    = ContInline String LuminaType AST LuminaType
     | ContReturn
 
 type MContEnv = Map String ContType
@@ -67,14 +68,14 @@ instance Show MValue where
     show (MApp v1 v2) = show v1 ++ " " ++ show v2
 
 data MExpr
-    = MLet String MValue MExpr
+    = MLet String LuminaType MValue MExpr
     | MAssign MAtom MAtom MExpr
     | MIf MAtom MExpr MExpr
     | MReturn MAtom
     deriving Eq
 
 instance Show MExpr where
-    show (MLet s v ex) = "let " ++ s ++ " = " ++ show v ++ "\n" ++ show ex
+    show (MLet s t v ex) = "let " ++ s ++ " : " ++ show t ++ " = " ++ show v ++ "\n" ++ show ex
     show (MAssign v1 v2 ex) = "set " ++ show v1 ++ " := " ++ show v2 ++ "\n" ++ show ex
     show (MIf v e1 e2) = "if " ++ show v ++ " then\n" ++ indent (show e1) ++ "else\n" ++ indent (show e2)
     show (MReturn v) = "return " ++ show v
@@ -83,7 +84,7 @@ instance Show MExpr where
 f >:= m = f m `orElse` recurse
     where
         recurse = case m of
-            MLet s mv me -> MLet s mv (f >:= me)
+            MLet s t mv me -> MLet s t mv (f >:= me)
             MAssign ma ma' me -> MAssign ma ma' me
             MIf ma me me' -> MIf ma (f >:= me) (f >:= me')
             MReturn ma -> MReturn ma
@@ -97,15 +98,15 @@ getMValue a k = case a of
     AInt n -> k (MInt n)
     AUnit -> k MUnit
     AVar s _ -> k (MVar s)
-    AUnaryOp uo ast _ -> do
-        t <- tmpVar
-        getMValue ast (\r -> MLet t (MUnary uo r) <$> k (MVar t))
-    ABinaryOp bo ast1 ast2 _ -> do
-        t <- tmpVar
-        getMValue ast1 (\r -> getMValue ast2 (\s -> MLet t (MBinary bo r s) <$> k (MVar t)))
+    AUnaryOp uo ast t -> do
+        v <- tmpVar
+        getMValue ast (\r -> MLet v t (MUnary uo r) <$> k (MVar v))
+    ABinaryOp bo ast1 ast2 t -> do
+        v <- tmpVar
+        getMValue ast1 (\r -> getMValue ast2 (\s -> MLet v t (MBinary bo r s) <$> k (MVar v)))
     AAssign ast1 ast2 -> do
-        t <- tmpVar
-        getMValue ast1 (\r -> getMValue ast2 (\s -> MAssign r s . MLet t (MJust MUnit) <$> k (MVar t)))
+        v <- tmpVar
+        getMValue ast1 (\r -> getMValue ast2 (\s -> MAssign r s . MLet v TUnit (MJust MUnit) <$> k (MVar v)))
     _ -> monadicFormError ("Could got get MValue - AST contains function/control nodes: " ++ show a)
     where
         tmpVar = do
@@ -124,31 +125,30 @@ toMonadicFormImpl env a = case a of
     ABinaryOp {} -> trivial
     AAssign {} -> trivial
     -- Cont continuations
-    AApp (AApp a1 a2 _) (AFun x _ a3 _) _ ->
-        getMValue a1 (\p -> getMValue a2 (\q -> MLet x (MApp p q) <$> recOn a3))
-    AApp (AApp a1 a2 _) (AVar k _) _ -> case env Map.!? k of
-        Just (ContInline x a3) -> recOn (AApp (AApp a1 a2 hole) (AFun x hole a3 hole) hole)
+    AApp (AApp a1 a2 _) (AFun x t a3 _) _ ->
+        getMValue a1 (\p -> getMValue a2 (\q -> MLet x t (MApp p q) <$> recOn a3))
+    AApp (AApp a1 a2 t1) (AVar k _) t2 -> case env Map.!? k of
+        Just (ContInline x t a3 t') -> recOn (AApp (AApp a1 a2 t1) (AFun x t a3 t') t2)
         Just ContReturn -> do
             ret <- retVar
-            getMValue a1 (\p -> getMValue a2 (\q -> return $ MLet ret (MApp p q) (MReturn (MVar ret))))
+            getMValue a1 (\p -> getMValue a2 (\q -> return $ MLet ret t2 (MApp p q) (MReturn (MVar ret))))
         Nothing -> monadicFormError ("could not find continuation: " ++ show k)
     -- Jump continuations
-    AApp (AFun x _ a1 _) (AFun y _ a2 _) _ ->
-        recWithCont x (ContInline y a2) a1
-    AApp (AFun x _ a1 _) (AVar k _) _ -> case env Map.!? k of
+    AApp (AFun x _ a1 _) (AFun y t a2 t') _ ->
+        recWithCont x (ContInline y t a2 t') a1
+    AApp (AFun x t a1 _) (AVar k _) _ -> case env Map.!? k of
         Just p -> recWithCont x p a1
-        Nothing -> MLet x (MJust $ MVar k) <$> toMonadicFormImpl env a1
-    AApp (AFun x _ a1 _) a2 _ -> getMValue a2 (\p -> MLet x (MJust p) <$> toMonadicFormImpl env a1)
+        Nothing -> MLet x t (MJust $ MVar k) <$> toMonadicFormImpl env a1
+    AApp (AFun x t a1 _) a2 _ -> getMValue a2 (\p -> MLet x t (MJust p) <$> toMonadicFormImpl env a1)
     -- Environment continuations
-    AApp (AVar k _) ast _ -> case env Map.!? k of
-        Just (ContInline x a1) -> recOn (AApp (AFun x hole a1 hole) ast hole)
+    AApp (AVar k _) ast tres -> case env Map.!? k of
+        Just (ContInline x t a1 t') -> recOn (AApp (AFun x t a1 t') ast tres)
         Just ContReturn -> getMValue ast (return . MReturn)
         Nothing -> monadicFormError ("could not find continuation: " ++ show k)
     -- If statements
     AIf ast ast' ast2 _ -> getMValue ast (\p -> MIf p <$> recOn ast' <*> recOn ast2)
     _ -> monadicFormError ("encountered invalid expression: " ++ show a)
     where
-        hole = undefined
         trivial = getMValue a (return . MReturn)
         recOn = toMonadicFormImpl env
         recWithCont x k = toMonadicFormImpl (Map.insert x k env)

@@ -11,12 +11,12 @@ propagateConsts = propagateConstsImpl Map.empty
 
 propagateConstsImpl :: RenameEnv -> MExpr -> MExpr
 propagateConstsImpl env ex = case ex of
-    MLet s mv me ->
-        let subMV mv' = MLet s mv' (recurse me)
+    MLet s t mv me ->
+        let subMV mv' = MLet s t mv' (recurse me)
         in case processVal mv of
             MJust ma ->
                 -- Expression will get removed in dead code elimination
-                MLet s mv (propagateConstsImpl (Map.insert s (process ma) env) me)
+                MLet s t mv (propagateConstsImpl (Map.insert s (process ma) env) me)
             MUnary uo ma ->
                 subMV (MUnary uo (process ma))
             MBinary bo ma ma' ->

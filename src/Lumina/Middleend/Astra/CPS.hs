@@ -33,15 +33,22 @@ liftCont label t tres k = do
     inner <- k (AVar r t)
     return $ AFun r t inner (TFun t tres)
 
+contType :: LuminaType -> LuminaType
+contType TInt = TInt
+contType TBool = TBool
+contType TUnit = TUnit
+contType (TRef t) = TRef (contType t)
+contType (TFun a b) = TFun a (TFun (TFun b b) b)
+
 cps :: AST -> LuminaType -> (AST -> CPSTable AST) -> CPSTable AST
 cps ast tres k = case ast of
     ABool b -> k (ABool b)
     AInt n -> k (AInt n)
     AUnit -> k AUnit
-    AVar s t -> k (AVar s t)
+    AVar s t -> k (AVar s (contType t))
     AApp ast' ast2 t -> do
         cont <- liftCont "cont" t tres k
-        cps ast' tres (\f -> cps ast2 tres (\a -> return (AApp (AApp f a (TFun t tres)) cont tres)))
+        cps ast' tres (\f -> cps ast2 tres (\a -> return (AApp (AApp f a (TFun (TFun t tres) tres)) cont tres)))
     AUnaryOp uo ast' t -> cps ast' tres (\a -> k $ AUnaryOp uo a t)
     ABinaryOp bo ast' ast2 t ->
         case bo of
@@ -63,17 +70,17 @@ cps ast tres k = case ast of
         let kt = TFun rt rt
         let ct = TFun kt rt
         c <- newVar "k"
-        res <- cpsTail ast' tres (AVar c kt)
+        res <- cpsTail ast' rt (AVar c kt)
         k (AFun s t (AFun c kt res ct) (TFun t ct))
     ALet x t ast' ast2 _ -> do
         res <- cps ast2 tres k
         cps ast' tres (\a -> return $ AApp (AFun x t res (TFun t tres)) a tres)
-    ALetFun f x t ast' ast2 t' -> do
-        let rt = getReturnType t'
+    ALetFun f x t ast' ast2 _ -> do
+        let rt = astraType ast'
         let kt = TFun rt rt
         let ct = TFun kt rt
         c <- newVar "k"
-        res <- cpsTail ast' tres (AVar c kt)
+        res <- cpsTail ast' rt (AVar c kt)
         outer <- cps ast2 tres k
         return (ALetFun f x t (AFun c kt res ct) outer tres)
     ASeq ast' ast2 _ -> do
@@ -87,8 +94,8 @@ cpsTail ast tres k = case ast of
     ABool b -> return (AApp k (ABool b) tres)
     AInt n -> return (AApp k (AInt n) tres)
     AUnit -> return (AApp k AUnit tres)
-    AVar s t -> return (AApp k (AVar s t) tres)
-    AApp ast' ast2 t -> cps ast' tres (\f -> cps ast2 tres (\a -> return (AApp (AApp f a (TFun t tres)) k tres)))
+    AVar s t -> return (AApp k (AVar s (contType t)) tres)
+    AApp ast' ast2 t -> cps ast' tres (\f -> cps ast2 tres (\a -> return (AApp (AApp f a (TFun (TFun t tres) tres)) k tres)))
     AUnaryOp uo ast' t -> cps ast' tres (\a -> return $ AApp k (AUnaryOp uo a t) tres)
     ABinaryOp bo ast' ast2 t ->
         case bo of
@@ -109,17 +116,17 @@ cpsTail ast tres k = case ast of
         let kt = TFun rt rt
         let ct = TFun kt rt
         c <- newVar "k"
-        res <- cpsTail ast' tres (AVar c kt)
+        res <- cpsTail ast' rt (AVar c kt)
         return (AApp k (AFun s t (AFun c kt res ct) (TFun t ct)) tres)
     ALet x t ast' ast2 _ -> do
         res <- cpsTail ast2 tres k
         cps ast' tres (\a -> return $ AApp (AFun x t res (TFun t tres)) a tres)
-    ALetFun f x t ast' ast2 t' -> do
-        let rt = getReturnType t'
+    ALetFun f x t ast' ast2 _ -> do
+        let rt = astraType ast'
         let kt = TFun rt rt
         let ct = TFun kt rt
         c <- newVar "k"
-        res <- cpsTail ast' tres (AVar c kt)
+        res <- cpsTail ast' rt (AVar c kt)
         outer <- cpsTail ast2 tres k
         return (ALetFun f x t (AFun c kt res ct) outer tres)
     ASeq ast' ast2 _ -> do

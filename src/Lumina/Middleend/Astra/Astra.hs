@@ -93,14 +93,14 @@ instance Show AST where
     show (ABool b) = show b
     show (AInt i) = show i
     show AUnit = "()"
-    show (AVar s t) = "(" ++ s ++ " : " ++ show t ++ ")"
-    show (AApp a b t) = "(" ++ show a ++ " " ++ show b ++ ") : " ++ show t
+    show (AVar s _) = s
+    show (AApp a b _) = "(" ++ show a ++ " " ++ show b ++ ")"
     show (AUnaryOp uo a _) = show uo ++ "(" ++ show a ++ ")"
     show (ABinaryOp bo a b _) = "(" ++ show a ++ " " ++ show bo ++ " " ++ show b ++ ")"
     show (AAssign a b) = show a ++ " := " ++ show b
     show (AIf a b c _) = "if " ++ show a ++ " then\n" ++ indent (show b) ++ "else\n" ++ indent (show c) ++ "end"
     show (ALet x t a b _) = "let " ++ x ++ " : " ++ show t ++ " = " ++ show a ++ " in\n" ++ indent (show b) ++ "end"
-    show (AFun s t b t') = "fun " ++ s ++ " : " ++ show t ++ " ->\n" ++ indent (show b) ++ "end : " ++ show t'
+    show (AFun s t b _) = "fun " ++ s ++ " : " ++ show t ++ " ->\n" ++ indent (show b) ++ "end"
     show (ALetFun f x t a b _) = "let fun " ++ f ++ " (" ++ x ++ " : " ++ show t ++ ") =\n" ++ indent (show a) ++ "in\n" ++ indent (show b) ++ "end"
     show (ASeq a b _) = show a ++ ";\n" ++ show b
 

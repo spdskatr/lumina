@@ -29,12 +29,12 @@ allFreeVars env ast =
         AVar x _ -> case Map.lookup x env of
             Nothing -> [x]
             Just (fv, _) -> fv
-        AFun x _ ast1 -> filter (/= x) $ allFreeVars env ast1
-        ALet x _ ast1 ast2 ->
+        AFun x _ ast1 _ -> filter (/= x) $ allFreeVars env ast1
+        ALet x _ ast1 ast2 _ ->
             let fv1 = allFreeVars env ast1
                 fv2 = filter (/= x) $ allFreeVars env ast2
             in fastNub $ fv1 ++ fv2
-        ALetFun f x _ ast1 ast2 -> 
+        ALetFun f x _ ast1 ast2 _ -> 
             let fv1 = filter (\y -> y /= x && y /= f) $ allFreeVars env ast1
                 fv2 = filter (/= f) $ allFreeVars env ast2
             in fastNub $ fv1 ++ fv2
@@ -43,7 +43,7 @@ allFreeVars env ast =
 globaliseFunctions :: AST -> FunctionEnv
 globaliseFunctions ast = 
     let (a, (_, env)) = runState (globaliseFunctionsImpl ast) (0, Map.empty)
-        newEnv = Map.insert "0main" ([], AFun "0arg" TUnit a) env
+        newEnv = Map.insert "0main" ([], AFun "0arg" TUnit a (TFun TUnit (astraType a))) env
     in untilFixedPoint populateFreeVars newEnv
 
 populateFreeVars :: FunctionEnv -> FunctionEnv
@@ -53,8 +53,8 @@ populateFreeVars env = Map.map changeFreeVars env
 
 globaliseFunctionsImpl :: AST -> GlobaliseState AST
 globaliseFunctionsImpl = \case
-    AFun s t ast -> globaliseFunctionsImpl (ALetFun "lambda" s t ast (AVar "lambda" hole))
-    ALetFun f x t ast1 ast2 -> do
+    AFun s t ast t' -> globaliseFunctionsImpl (ALetFun "lambda" s t ast (AVar "lambda" hole) t')
+    ALetFun f x t ast1 ast2 _ -> do
         let ft = TFun t (astraType ast1)
         newName <- globalName f
         -- Insert a placeholder, to tell recursive calls that the name will exist
@@ -63,7 +63,7 @@ globaliseFunctionsImpl = \case
         ast2' <- globaliseFunctionsImpl $ replaceVar f (AVar newName ft) ast2
 
         -- Insert the actual function body
-        newGlobalFunc newName ([], AFun x t ast1')
+        newGlobalFunc newName ([], AFun x t ast1' ft)
 
         -- Output the rest
         return ast2'

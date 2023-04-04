@@ -3,8 +3,6 @@ module Lumina.Interpreter.AstraInterpreter (
     Store,
     Env,
     Value(..),
-    contFormToEnv,
-    interpContinuationForm,
     interpret,
     getValue,
     eval
@@ -15,12 +13,11 @@ import Data.Ix (Ix)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Lumina.Middleend.Astra.Astra (AST (..), UnaryOp (..), BinaryOp (..))
-import Lumina.Utils (internalError, orElse)
+import Lumina.Utils (internalError)
 import Lumina.Frontend.ParserGen (LRParser)
 import Lumina.Frontend.Lexer (TokenTag)
 import Lumina.Frontend.LuminaGrammar (LNT)
 import Lumina.Frontend.Shortcuts (getAST)
-import Lumina.Middleend.Astra.HoistFunctions (FunctionEnv)
 import Lumina.Middleend.Typing (LuminaType)
 
 {- The "reference implementation" for Lumina based on its operational semantics.
@@ -81,17 +78,17 @@ interpret a env = case a of
     AVar s _ -> case env Map.! s of
         VClosure cl -> return $ VFun (cl env)
         v -> return v
-    AApp a1 a2 -> do
+    AApp a1 a2 _ -> do
         val1 <- interpret a1 env
         case val1 of
             VFun f -> do
                 val2 <- interpret a2 env
                 f val2
             _ -> internalError $ "Left argument of function application should be a function, found " ++ show val1 ++ " instead"
-    AUnaryOp uo ast' -> do
+    AUnaryOp uo ast' _ -> do
         val <- interpret ast' env
         applyUnaryOp uo val
-    ABinaryOp bo ast ast' -> do
+    ABinaryOp bo ast ast' _ -> do
         val1 <- interpret ast env
         -- Short circuiting
         case (bo, val1) of
@@ -100,7 +97,7 @@ interpret a env = case a of
             _ -> do
                 val2 <- interpret ast' env
                 applyBinaryOp bo val1 val2
-    AIf cond athen aelse -> do
+    AIf cond athen aelse _ -> do
         res <- interpret cond env
         case res of
             VBool True -> interpret athen env
@@ -115,39 +112,21 @@ interpret a env = case a of
                 put $ Map.insert loc val2 store
                 return VUnit
             _ -> internalError $ "Left side of assignment-expression did not evaluate to a reference, found " ++ show val1 ++ " instead"
-    AFun s _ ast' -> 
+    AFun s _ ast' _ -> 
         return $ VFun $ \val -> do
             let newEnv = Map.insert s val env
             interpret ast' newEnv
-    ALet x _ ast ast' -> do
+    ALet x _ ast ast' _ -> do
         val <- interpret ast env
         let envX = Map.insert x val env
         interpret ast' envX
-    ALetFun f x _ ast ast' -> do
+    ALetFun f x _ ast ast' _ -> do
         let envF = Map.insert f (VFun $ \val -> interpret ast (Map.insert x val envF)) env
         interpret ast' envF
-    ASeq l r -> do
+    ASeq l r _ -> do
         _ <- interpret l env
         interpret r env
 --  _ -> internalError $ "Bad AST (which should never happen): " ++ show a
-
--- Continuation form interpreter
-contFormToEnv :: FunctionEnv -> Env
-contFormToEnv fe = Map.map (\(fv, AFun x _ ast) -> VClosure $ \outerEnv v -> 
-    let boundFromOuter = Map.fromList $ (\k -> (k, outerEnv Map.!? k `orElse` unboundError k)) <$> fv
-        boundMap = Map.union boundFromOuter (contFormToEnv fe)
-        unboundError k = internalError ("variable " ++ k ++ " not found in outer context: " ++ show (Map.keys outerEnv) ++ " " ++ show v)
-    in interpret ast (Map.insert x v boundMap)) fe
-
-interpContinuationForm :: FunctionEnv -> State Store Value
-interpContinuationForm fs = 
-    let mainEnv = contFormToEnv fs
-        VClosure entryPoint = mainEnv Map.! "0main"
-    in do
-        contV <- entryPoint mainEnv VUnit
-        case contV of
-            VFun c -> c (VFun return)
-            _ -> internalError $ "main doesn't accept a continuation as second argument, found " ++ show contV ++ " instead"
 
 -- Shortcuts
 getValue :: AST -> Value

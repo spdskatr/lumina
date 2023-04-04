@@ -61,15 +61,15 @@ data AST
     | AInt Int
     | AUnit
     | AVar String LuminaType
-    | AApp AST AST
-    | AUnaryOp UnaryOp AST
-    | ABinaryOp BinaryOp AST AST
+    | AApp AST AST LuminaType
+    | AUnaryOp UnaryOp AST LuminaType
+    | ABinaryOp BinaryOp AST AST LuminaType
     | AAssign AST AST
-    | AIf AST AST AST
-    | AFun String LuminaType AST
-    | ALet String LuminaType AST AST
-    | ALetFun String String LuminaType AST AST
-    | ASeq AST AST
+    | AIf AST AST AST LuminaType
+    | AFun String LuminaType AST LuminaType
+    | ALet String LuminaType AST AST LuminaType
+    | ALetFun String String LuminaType AST AST LuminaType
+    | ASeq AST AST LuminaType
     deriving (Eq)
 
 type TranslationRes a = Either String a
@@ -79,43 +79,30 @@ astraType (ABool _) = TBool
 astraType (AInt _) = TInt
 astraType AUnit = TUnit
 astraType (AVar _ t) = t
-astraType (AApp a _) = case astraType a of
-    TFun _ b -> b
-    t -> internalError $ "Left side of application not a function type - found " ++ show t
-astraType (AUnaryOp OpNot _) = TBool
-astraType (AUnaryOp OpBang a) = case astraType a of
-    TRef t -> t
-    t -> internalError $ "Argument of dereference is not a referecnce type - found " ++ show t
-astraType (AUnaryOp OpRef a) = TRef (astraType a)
-astraType (ABinaryOp OpAdd _ _) = TInt
-astraType (ABinaryOp OpSub _ _) = TInt
-astraType (ABinaryOp OpMul _ _) = TInt
-astraType (ABinaryOp OpAnd _ _) = TBool
-astraType (ABinaryOp OpOr _ _) = TBool
-astraType (ABinaryOp OpLessThan _ _) = TBool
-astraType (ABinaryOp OpIntEqual _ _) = TBool
-astraType (ABinaryOp OpBoolEqual _ _) = TBool
+astraType (AApp _ _ t) = t
+astraType (AUnaryOp _ _ t) = t
+astraType (ABinaryOp _ _ _ t) = t
 astraType (AAssign _ _) = TUnit
-astraType (AIf _ a _) = astraType a
-astraType (AFun _ t e) = TFun t (astraType e)
-astraType (ALet _ _ _ a) = astraType a
-astraType (ALetFun _ _ _ _ a) = astraType a
-astraType (ASeq _ a) = astraType a
+astraType (AIf _ _ _ t) = t
+astraType (AFun _ _ _ t) = t
+astraType (ALet _ _ _ _ t) = t
+astraType (ALetFun _ _ _ _ _ t) = t
+astraType (ASeq _ _ t) = t
 
 instance Show AST where
     show (ABool b) = show b
     show (AInt i) = show i
     show AUnit = "()"
-    show (AVar s t) = "(" ++ s ++ " : " ++ show t ++ ")"
-    show (AApp a b ) = "(" ++ show a ++ " " ++ show b ++ ")"
-    show (AUnaryOp uo a) = show uo ++ "(" ++ show a ++ ")"
-    show (ABinaryOp bo a b) = "(" ++ show a ++ " " ++ show bo ++ " " ++ show b ++ ")"
+    show (AVar s _) = s
+    show (AApp a b _) = "(" ++ show a ++ " " ++ show b ++ ")"
+    show (AUnaryOp uo a _) = show uo ++ "(" ++ show a ++ ")"
+    show (ABinaryOp bo a b _) = "(" ++ show a ++ " " ++ show bo ++ " " ++ show b ++ ")"
     show (AAssign a b) = show a ++ " := " ++ show b
-    show (AIf a b c) = "if " ++ show a ++ " then\n" ++ indent (show b) ++ "else\n" ++ indent (show c) ++ "end"
-    show (ALet x t a b) = "let " ++ x ++ " : " ++ show t ++ " = " ++ show a ++ " in\n" ++ indent (show b) ++ "end"
-    show (AFun s t b) = "fun " ++ s ++ " : " ++ show t ++ " ->\n" ++ indent (show b) ++ "end"
-    show (ALetFun f x t a b) = "let fun " ++ f ++ " (" ++ x ++ " : " ++ show t ++ ") =\n" ++ indent (show a) ++ "in\n" ++ indent (show b) ++ "end"
-    show (ASeq a b) = show a ++ ";\n" ++ show b
+    show (AIf a b c _) = "if " ++ show a ++ " then\n" ++ indent (show b) ++ "else\n" ++ indent (show c) ++ "end"
+    show (ALet x t a b _) = "let " ++ x ++ " : " ++ show t ++ " = " ++ show a ++ " in\n" ++ indent (show b) ++ "end"
+    show (AFun s t b _) = "fun " ++ s ++ " : " ++ show t ++ " ->\n" ++ indent (show b) ++ "end"
+    show (ALetFun f x t a b _) = "let fun " ++ f ++ " (" ++ x ++ " : " ++ show t ++ ") =\n" ++ indent (show a) ++ "in\n" ++ indent (show b) ++ "end"
+    show (ASeq a b _) = show a ++ ";\n" ++ show b
 
 -- Rename all references to a variable within an AST to something else.
 replaceVar :: String -> AST -> AST -> AST
@@ -123,10 +110,10 @@ replaceVar x r = (findVar >:=)
     where
         findVar ast = case ast of
             AVar y _ | x == y             -> Just r
-            AFun y _ _ | x == y         -> Just ast
-            ALet y t a b | x == y      -> Just (ALet y t (replaceVar x r a) b)
-            ALetFun f _ _ _ _ | x == f  -> Just ast
-            ALetFun f y t a b | x == y -> Just (ALetFun f y t a (replaceVar x r b))
+            AFun y _ _ _ | x == y         -> Just ast
+            ALet y t a b t' | x == y      -> Just (ALet y t (replaceVar x r a) b t')
+            ALetFun f _ _ _ _ _ | x == f  -> Just ast
+            ALetFun f y t a b t' | x == y -> Just (ALetFun f y t a (replaceVar x r b) t')
             _ -> Nothing
 
 isTrivial :: AST -> Bool
@@ -145,54 +132,54 @@ f >:= ast = f ast `orElse` case ast of
     AInt _ -> ast
     AUnit -> ast
     AVar _ _ -> ast
-    AApp ast' ast2 -> AApp (f >:= ast') (f >:= ast2)
-    AUnaryOp uo ast' -> AUnaryOp uo (f >:= ast')
-    ABinaryOp bo ast' ast2 -> ABinaryOp bo (f >:= ast') (f >:= ast2)
+    AApp ast' ast2 t -> AApp (f >:= ast') (f >:= ast2) t
+    AUnaryOp uo ast' t -> AUnaryOp uo (f >:= ast') t
+    ABinaryOp bo ast' ast2 t -> ABinaryOp bo (f >:= ast') (f >:= ast2) t
     AAssign ast' ast2 -> AAssign (f >:= ast') (f >:= ast2)
-    AIf ast' ast2 ast3 -> AIf (f >:= ast') (f >:= ast2) (f >:= ast3)
-    AFun s t ast' -> AFun s t (f >:= ast')
-    ALet s t ast' ast2 -> ALet s t (f >:= ast') (f >:= ast2)
-    ALetFun s str t ast' ast2 -> ALetFun s str t (f >:= ast') (f >:= ast2)
-    ASeq ast' ast2 -> ASeq (f >:= ast') (f >:= ast2)
+    AIf ast' ast2 ast3 t -> AIf (f >:= ast') (f >:= ast2) (f >:= ast3) t
+    AFun s t ast' t' -> AFun s t (f >:= ast') t'
+    ALet s t ast' ast2 t' -> ALet s t (f >:= ast') (f >:= ast2) t'
+    ALetFun s str t ast' ast2 t' -> ALetFun s str t (f >:= ast') (f >:= ast2) t'
+    ASeq ast' ast2 t -> ASeq (f >:= ast') (f >:= ast2) t
 
 -- Distribute a monadic action over a single level of the AST.
 (>>:=) :: (Monad m) => (AST -> m AST) -> AST -> m AST
 f >>:= ast = case ast of
-    AApp ast1 ast2 -> do
+    AApp ast1 ast2 t -> do
         ast1' <- f ast1
         ast2' <- f ast2
-        return (AApp ast1' ast2')
-    AUnaryOp uo ast1 -> do
+        return (AApp ast1' ast2' t)
+    AUnaryOp uo ast1 t -> do
         ast1' <- f ast1
-        return (AUnaryOp uo ast1')
-    ABinaryOp bo ast1 ast2 -> do
+        return (AUnaryOp uo ast1' t)
+    ABinaryOp bo ast1 ast2 t -> do
         ast1' <- f ast1
         ast2' <- f ast2
-        return (ABinaryOp bo ast1' ast2')
+        return (ABinaryOp bo ast1' ast2' t)
     AAssign ast1 ast2 -> do
         ast1' <- f ast1
         ast2' <- f ast2
         return (AAssign ast1' ast2')
-    AIf ast1 ast2 ast3 -> do
+    AIf ast1 ast2 ast3 t -> do
         ast1' <- f ast1
         ast2' <- f ast2
         ast3' <- f ast3
-        return (AIf ast1' ast2' ast3')
-    AFun s t ast1 -> do
+        return (AIf ast1' ast2' ast3' t)
+    AFun s t ast1 t' -> do
         ast1' <- f ast1
-        return (AFun s t ast1')
-    ALet s t ast1 ast2 -> do
-        ast1' <- f ast1
-        ast2' <- f ast2
-        return (ALet s t ast1' ast2')
-    ALetFun s str t ast1 ast2 -> do
+        return (AFun s t ast1' t')
+    ALet s t ast1 ast2 t' -> do
         ast1' <- f ast1
         ast2' <- f ast2
-        return (ALetFun s str t ast1' ast2')
-    ASeq ast1 ast2 -> do
+        return (ALet s t ast1' ast2' t')
+    ALetFun s str t ast1 ast2 t' -> do
         ast1' <- f ast1
         ast2' <- f ast2
-        return (ASeq ast1' ast2')
+        return (ALetFun s str t ast1' ast2' t')
+    ASeq ast1 ast2 t -> do
+        ast1' <- f ast1
+        ast2' <- f ast2
+        return (ASeq ast1' ast2' t)
     _ -> return ast
 
 -- Fold over a single level of the AST.
@@ -202,15 +189,15 @@ f ><> ast = case ast of
     AInt _ -> mempty
     AUnit -> mempty
     AVar _ _ -> mempty
-    AApp ast' ast2 -> f ast' <> f ast2
-    AUnaryOp _ ast' -> f ast'
-    ABinaryOp _ ast' ast2 -> f ast' <> f ast2
+    AApp ast' ast2 _ -> f ast' <> f ast2
+    AUnaryOp _ ast' _ -> f ast'
+    ABinaryOp _ ast' ast2 _ -> f ast' <> f ast2
     AAssign ast' ast2 -> f ast' <> f ast2
-    AIf ast' ast2 ast3 -> f ast' <> f ast2 <> f ast3
-    AFun _ _ ast' -> f ast'
-    ALet _ _ ast' ast2 -> f ast' <> f ast2
-    ALetFun _ _ _ ast' ast2 -> f ast' <> f ast2
-    ASeq ast' ast2 -> f ast' <> f ast2
+    AIf ast' ast2 ast3 _ -> f ast' <> f ast2 <> f ast3
+    AFun _ _ ast' _ -> f ast'
+    ALet _ _ ast' ast2 _ -> f ast' <> f ast2
+    ALetFun _ _ _ ast' ast2 _ -> f ast' <> f ast2
+    ASeq ast' ast2 _ -> f ast' <> f ast2
 
 typeError :: String -> TranslationRes a
 typeError s = Left $ "Type error: " ++ s
@@ -272,7 +259,7 @@ makeCases (s,t) env ((pa,pb):rest) = do
         Just op -> if t2 /= t' then 
             typeError ("Result types of case split must be equal, got types " ++ show (t2, t') ++ " instead")
         else 
-            return (AIf (ABinaryOp op (AVar s t) a1) a2 aa, t2)
+            return (AIf (ABinaryOp op (AVar s t) a1 TBool) a2 aa t2, t2)
 
 translate :: TypeEnv -> PAST -> TranslationRes (AST, LuminaType)
 translate env past = case past of
@@ -290,52 +277,52 @@ translate env past = case past of
         (a1,t1) <- translate env pa
         (a2,t2) <- translate env pa'
         t <- applyType t1 t2
-        return (AApp a1 a2, t)
+        return (AApp a1 a2 t, t)
     PBang pa -> do
         (a1, t1) <- translate env pa
         case t1 of
-            TRef x -> return (AUnaryOp OpBang a1, x)
-            TBool -> return (AUnaryOp OpNot a1, TBool)
+            TRef x -> return (AUnaryOp OpBang a1 x, x)
+            TBool -> return (AUnaryOp OpNot a1 TBool, TBool)
             _ -> typeError ("Mismatched type for ! (should be bool or reference): " ++ show t1)
     PRef pa -> do
         (a1, t1) <- translate env pa
-        return (AUnaryOp OpRef a1, TRef t1)
+        return (AUnaryOp OpRef a1 (TRef t1), TRef t1)
     PMul pa pa' -> do
         (a1,t1) <- translate env pa
         (a2,t2) <- translate env pa'
         t <- checkInts t1 t2
-        return (ABinaryOp OpMul a1 a2, t)
+        return (ABinaryOp OpMul a1 a2 t, t)
     PSub pa pa' -> do
         (a1,t1) <- translate env pa
         (a2,t2) <- translate env pa'
         t <- checkInts t1 t2
-        return (ABinaryOp OpSub a1 a2, t)
+        return (ABinaryOp OpSub a1 a2 t, t)
     PAdd pa pa' -> do
         (a1,t1) <- translate env pa
         (a2,t2) <- translate env pa'
         t <- checkInts t1 t2
-        return (ABinaryOp OpAdd a1 a2, t)
+        return (ABinaryOp OpAdd a1 a2 t, t)
     PAnd pa pa' -> do
         (a1,t1) <- translate env pa
         (a2,t2) <- translate env pa'
         t <- checkBools t1 t2
-        return (ABinaryOp OpAnd a1 a2, t)
+        return (ABinaryOp OpAnd a1 a2 t, t)
     POr pa pa' -> do
         (a1,t1) <- translate env pa
         (a2,t2) <- translate env pa'
         t <- checkBools t1 t2
-        return (ABinaryOp OpOr a1 a2, t)
+        return (ABinaryOp OpOr a1 a2 t, t)
     PLessThan pa pa' -> do
         (a1,t1) <- translate env pa
         (a2,t2) <- translate env pa'
         t <- checkComparison t1 t2
-        return (ABinaryOp OpLessThan a1 a2, t)
+        return (ABinaryOp OpLessThan a1 a2 t, t)
     PEqual pa pa' -> do
         (a1,t1) <- translate env pa
         (a2,t2) <- translate env pa'
         let eqOp = getEqualsOp t1 t2
         case eqOp of 
-            Just x -> return (ABinaryOp x a1 a2, TBool)
+            Just x -> return (ABinaryOp x a1 a2 TBool, TBool)
             Nothing -> typeError ("Expected equatable types for = comparison; got " ++ show (t1, t2) ++ " instead")
     PAssign pa pa' -> do
         (a1,t1) <- translate env pa
@@ -350,17 +337,17 @@ translate env past = case past of
                     AIf (AVar "0cond" TBool) (
                         ASeq a2 (AApp (
                             AVar "0while" (TFun TBool TUnit)) a1 
-                        )
-                    ) 
-                AUnit) (
-                    AApp (AVar "0while" (TFun TBool TUnit)) a1
-                ), TUnit)
+                        TUnit)
+                    TUnit) 
+                AUnit TUnit) (
+                    AApp (AVar "0while" (TFun TBool TUnit)) a1 TUnit
+                ) TUnit, TUnit)
         else 
             typeError ("Expected boolean type for expression to while; got " ++ show t1 ++ " instead")
     PSeq pa pa' -> do
         (a1,_) <- translate env pa
         (a2,t2) <- translate env pa'
-        return (ASeq a1 a2, t2)
+        return (ASeq a1 a2 t2, t2)
     PFun (PToken (Ident x)) ta ta' pa' -> do
         inType <- getType ta
         let newEnv = Map.insert x inType env
@@ -368,7 +355,7 @@ translate env past = case past of
         t2 <- getType ta'
         if t1 == t2 then 
             let newType = TFun inType t2
-            in return (AFun x inType a1, newType)
+            in return (AFun x inType a1 newType, newType)
         else
             typeError ("Expected type " ++ show t2 ++ " in lambda, got " ++ show t1 ++ " instead")
     PLet (PToken (Ident x)) ta pa pa' -> do
@@ -377,7 +364,7 @@ translate env past = case past of
         (a1,t1) <- translate env pa
         (a2,t2) <- translate newEnv pa'
         if t1 == actualType then
-            return (ALet x actualType a1 a2, t2)
+            return (ALet x actualType a1 a2 t2, t2)
         else
             typeError ("Expected type " ++ show actualType ++ " in with, got " ++ show t1 ++ " instead")
     
@@ -391,14 +378,14 @@ translate env past = case past of
         (a1,t1) <- translate newEnvA pa'
         (a2,t2) <- translate newEnvB pb
         if t1 == outType then
-            return (ALetFun f x inType a1 a2, t2)
+            return (ALetFun f x inType a1 a2 t2, t2)
         else
             typeError ("Expected type " ++ show outType ++ " in body of function " ++ f ++ ", got " ++ show t1 ++ " instead")
     PCase pa (PCaseList l) -> do
         (a1,t1) <- translate env pa
         let innerCaseEnv = Map.insert "0case" t1 env
         (a2,t2) <- makeCases ("0case",t1) innerCaseEnv l
-        return (AApp (AFun "0case" t1 a2) a1, t2)
+        return (AApp (AFun "0case" t1 a2 (TFun t1 t2)) a1 t2, t2)
     PCaseList _ -> internalError "Found lonely CaseList"
     _ -> internalError $ "Bad PAST: " ++ show past
 
@@ -411,9 +398,9 @@ freeVars :: AST -> [String]
 freeVars = fastNub . freeVarsImpl
     where
         freeVarsImpl (AVar x _) = [x]
-        freeVarsImpl (AFun s _ x) = filter (/= s) $ freeVars x
-        freeVarsImpl (ALet x _ s t) = freeVars s ++ filter (/= x) (freeVars t)
-        freeVarsImpl (ALetFun f x _ s t) = 
+        freeVarsImpl (AFun s _ x _) = filter (/= s) $ freeVars x
+        freeVarsImpl (ALet x _ s t _) = freeVars s ++ filter (/= x) (freeVars t)
+        freeVarsImpl (ALetFun f x _ s t _) = 
             let a1 = filter (\y -> y /= x && y /= f) $ freeVars s
                 a2 = filter (/= f) $ freeVars t
             in a1 ++ a2

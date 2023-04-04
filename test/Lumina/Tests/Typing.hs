@@ -34,51 +34,61 @@ checkTypes env ast = case ast of
     AVar s t -> case env Map.!? s of
         Nothing -> die $ "unbound variable " ++ s
         Just t2 -> t <=> t2
-    AApp ast' ast2 -> checkChildren $ do
+    AApp ast' ast2 t3 -> checkChildren $ do
         let t1 = astraType ast'
         let t2 = astraType ast2
         case t1 of
-            TFun t2' _ -> do
+            TFun t2' t3' -> do
                 t2' <=> t2
+                t3' <=> t3
             _ -> die $ "left side of application not a function type - found " ++ show t1
-    AUnaryOp uo ast' -> checkChildren $ do
+    AUnaryOp uo ast' t -> checkChildren $ do
         let t1 = astraType ast'
-        _ <- doUnary uo t1 
-        return ()
-    ABinaryOp bo ast' ast2 -> checkChildren $ do
+        t' <- doUnary uo t1 
+        t' <=> t
+    ABinaryOp bo ast' ast2 t -> checkChildren $ do
         let t1 = astraType ast'
         let t2 = astraType ast2
-        _ <- doBinary bo t1 t2
-        return ()
+        t' <- doBinary bo t1 t2
+        t' <=> t
     AAssign ast' ast2 -> checkChildren $ do
         let t1 = astraType ast'
         let t2 = astraType ast2
         case t1 of
-            TRef t' -> do
-                t' <=> t2
+            TRef t2' -> do
+                t2' <=> t2
             _ -> die $ "Left side of assignment should be a reference - found " ++ show t1
-    AIf ast' ast2 ast3 -> checkChildren $ do
+    AIf ast' ast2 ast3 t -> checkChildren $ do
         let t1 = astraType ast'
         let t2 = astraType ast2
         let t3 = astraType ast3
         t1 <=> TBool
-        t2 <=> t3
-    AFun s t1 ast' -> do
+        t2 <=> t
+        t3 <=> t
+    AFun s t1 ast' t -> do
         let newEnv = Map.insert s t1 env
         checkTypes newEnv ast'
-    ALet s t1 ast' ast2 -> do
+        let t2 = astraType ast'
+        t <=> TFun t1 t2
+    ALet s t1 ast' ast2 t2 -> do
         let newEnv = Map.insert s t1 env
         checkTypes env ast'
         checkTypes newEnv ast2
         let t1' = astraType ast'
+        let t2' = astraType ast2
         t1 <=> t1'
-    ALetFun f s t1 ast' ast2 -> do
+        t2 <=> t2'
+    ALetFun f s t1 ast' ast2 t2 -> do
+        let t2' = astraType ast2
         let t3 = astraType ast'
         let fEnv = Map.insert f (TFun t1 t3) env
         let sEnv = Map.insert s t1 fEnv
         checkTypes sEnv ast'
         checkTypes fEnv ast2
-    ASeq _ _ -> checkChildren (return ())
+        t2 <=> t2'
+    ASeq _ b t -> checkChildren $ do
+        let t' = astraType b    
+        t' <=> t
     where
         checkChildren m = (\a -> checkTypes env a >> return a) >>:= ast >> m
         (<=>) = assertEq ast

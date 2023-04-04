@@ -4,10 +4,10 @@ import Lumina.Middleend.Astra.Astra (AST (..), astraType, UnaryOp (..), BinaryOp
 
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Lumina.Middleend.Typing (LuminaType (..), (~))
+import Lumina.Middleend.Typing (LuminaType (..))
 
 assertEq :: AST -> LuminaType -> LuminaType -> Either String ()
-assertEq ast t1 t2 = if t1 ~ t2 then Right () else Left $ "Type " ++ show t1 ++ " does not match expected type " ++ show t2 ++ ": " ++ show ast
+assertEq ast t1 t2 = if t1 == t2 then Right () else Left $ "Type " ++ show t1 ++ " does not match expected type " ++ show t2 ++ ": " ++ show ast
 
 doUnary :: UnaryOp -> LuminaType -> Either String LuminaType
 doUnary OpNot TBool = Right TBool

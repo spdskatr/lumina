@@ -7,7 +7,6 @@ module Lumina.Interpreter.AstraInterpreter (
     interpContinuationForm,
     interpret,
     getValue,
-    getValueCF,
     eval
 ) where
 
@@ -21,7 +20,7 @@ import Lumina.Frontend.ParserGen (LRParser)
 import Lumina.Frontend.Lexer (TokenTag)
 import Lumina.Frontend.LuminaGrammar (LNT)
 import Lumina.Frontend.Shortcuts (getAST)
-import Lumina.Middleend.Astra.HoistFunctions (FunctionEnv, toContinuationForm)
+import Lumina.Middleend.Astra.HoistFunctions (FunctionEnv)
 import Lumina.Middleend.Typing (LuminaType)
 
 {- The "reference implementation" for Lumina based on its operational semantics.
@@ -153,11 +152,6 @@ interpContinuationForm fs =
 -- Shortcuts
 getValue :: AST -> Value
 getValue ast = evalState (interpret ast Map.empty) Map.empty
-
-getValueCF :: AST -> Value
-getValueCF ast =
-    let fs = toContinuationForm ast
-    in evalState (interpContinuationForm fs) Map.empty
 
 eval :: LRParser LNT TokenTag -> String -> (Value, LuminaType)
 eval lr code = 

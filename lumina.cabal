@@ -32,7 +32,6 @@ library
       Lumina.Frontend.Shortcuts
       Lumina.Interpreter.AstraInterpreter
       Lumina.Middleend.Astra.Astra
-      Lumina.Middleend.Astra.CPS
       Lumina.Middleend.Astra.ElimShadowing
       Lumina.Middleend.Astra.HoistFunctions
       Lumina.Middleend.Mona.ElimDeadCode

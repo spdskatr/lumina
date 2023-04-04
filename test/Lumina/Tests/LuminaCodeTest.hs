@@ -2,8 +2,7 @@
 module Lumina.Tests.LuminaCodeTest (runCodeTest) where
 
 import Lumina.Frontend.Shortcuts (loadParserFrom, getAST)
-import Lumina.Interpreter.AstraInterpreter (Value (..), eval, getValue, getValueCF)
-import Lumina.Middleend.Shortcuts (transform)
+import Lumina.Interpreter.AstraInterpreter (Value (..), eval)
 import Lumina.Frontend.ParserGen (LRParser)
 import Lumina.Frontend.Lexer (TokenTag)
 import Lumina.Frontend.LuminaGrammar (LNT)
@@ -98,9 +97,6 @@ allTests :: LRParser LNT TokenTag -> Either String ()
 allTests lr = do
     forM_ testCases $ testTyping "ast" (fst . getAST lr)
     testWithEvaluator "interp" (fst . eval lr)
-    forM_ testCases $ testTyping "cps" (transform . fst . getAST lr)
-    testWithEvaluator "interpCPS" (getValue . transform . fst . getAST lr)
-    testWithEvaluator "interpContForm" (getValueCF . fst . getAST lr)
 
 runCodeTest :: IO ()
 runCodeTest = do

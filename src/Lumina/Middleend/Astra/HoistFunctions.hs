@@ -1,16 +1,14 @@
 {-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-module Lumina.Middleend.Astra.HoistFunctions (GlobalisedFunction, FunctionEnv, globaliseFunctions, toContinuationForm) where
+module Lumina.Middleend.Astra.HoistFunctions (GlobalisedFunction, FunctionEnv, globaliseFunctions) where
 
 import Lumina.Middleend.Astra.Astra (AST (..), (>>:=), replaceVar, (><>), astraType)
-import Lumina.Middleend.Astra.CPS (cps)
 
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Bifunctor as Bifunctor
 import Control.Monad.Trans.State.Strict (State, state, runState, modify)
 import Lumina.Utils (fastNub, untilFixedPoint, internalError)
-import Lumina.Middleend.Astra.ElimShadowing (elimShadowing)
 import Lumina.Middleend.Typing (LuminaType(..))
 
 -- GlobalisedFunction is of the form (captured variables, expression with no inner functions)
@@ -72,22 +70,3 @@ globaliseFunctionsImpl = \case
     ast -> globaliseFunctionsImpl >>:= ast
     where
         hole = internalError "Attempted to evaluate unfilled hole - this should never happen"
-
-allToCPS :: (Int, FunctionEnv) -> String -> GlobalisedFunction -> (Int, FunctionEnv)
-allToCPS (i, env) f (fv, ast) =
-    let (ast', j) = runState (cps ast return) i
-    in (j, Map.insert f (fv, ast') env)
-
-{- "Continuation form" is an intermediate representation I made up in which 
- - every non-continuation function has a name (i.e. the only lambdas are 
- - continuations) and the body of every function is in continuation-passing
- - style.
- - 
- - To preserve correctness of code, shadowing must also be eliminated (to 
- - distinguish between environment and local variables). For a counterexample,
- - refer to test "shadowing" in Lumina.Tests.LuminaCodeTest
- -}
-toContinuationForm :: AST -> FunctionEnv
-toContinuationForm ast =
-    let env = globaliseFunctions $ elimShadowing ast
-    in snd $ Map.foldlWithKey allToCPS (0, Map.empty) env

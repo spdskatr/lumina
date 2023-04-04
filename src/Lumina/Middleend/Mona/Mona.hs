@@ -6,9 +6,10 @@ import Lumina.Utils (internalError, indent, orElse)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Control.Monad.Trans.State.Strict (State, evalState, get, put)
-import Lumina.Middleend.Astra.HoistFunctions (toContinuationForm)
+import Lumina.Middleend.Astra.HoistFunctions (globaliseFunctions)
 import Data.List (intercalate)
 import Lumina.Middleend.Typing (LuminaType (..))
+import Lumina.Middleend.Astra.ElimShadowing (elimShadowing)
 
 {-
  - After hoisting all of our functions into a main environment and converting
@@ -155,7 +156,6 @@ toMonadicFormImpl env a = case a of
     AIf ast ast' ast2 -> getMValue ast (\p -> MIf p <$> recOn ast' <*> recOn ast2)
     _ -> monadicFormError ("encountered invalid expression: " ++ show a)
     where
-
         trivial = getMValue a (return . MReturn)
         recOn = toMonadicFormImpl env
         recWithCont x k = toMonadicFormImpl (Map.insert x k env)
@@ -169,7 +169,7 @@ toMonadicForm :: String -> AST -> MExpr
 toMonadicForm k ast = evalState (toMonadicFormImpl (Map.singleton k ContReturn) ast) 0
 
 astraToMona :: AST -> Map String MonaFunction
-astraToMona ast = Map.mapWithKey translateChunk $ toContinuationForm ast
+astraToMona ast = Map.mapWithKey translateChunk $ globaliseFunctions $ elimShadowing ast
     where
         translateChunk name (fv,a) = case a of
             (AFun x _ (AFun k _ a')) -> MonaFunction { getName = name, getFV = fv, getArg = x, getBody = toMonadicForm k a' }

@@ -9,7 +9,7 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Bifunctor as Bifunctor
 import Control.Monad.Trans.State.Strict (State, state, runState, modify)
-import Lumina.Utils (fastNub, untilFixedPoint)
+import Lumina.Utils (fastNub, untilFixedPoint, internalError)
 import Lumina.Middleend.Astra.ElimShadowing (elimShadowing)
 import Lumina.Middleend.Typing (LuminaType(..))
 
@@ -31,12 +31,12 @@ allFreeVars env ast =
         AVar x _ -> case Map.lookup x env of
             Nothing -> [x]
             Just (fv, _) -> fv
-        AFun x _ ast1 _ -> filter (/= x) $ allFreeVars env ast1
-        ALet x _ ast1 ast2 _ ->
+        AFun x _ ast1 -> filter (/= x) $ allFreeVars env ast1
+        ALet x _ ast1 ast2 ->
             let fv1 = allFreeVars env ast1
                 fv2 = filter (/= x) $ allFreeVars env ast2
             in fastNub $ fv1 ++ fv2
-        ALetFun f x _ ast1 ast2 _ -> 
+        ALetFun f x _ ast1 ast2 -> 
             let fv1 = filter (\y -> y /= x && y /= f) $ allFreeVars env ast1
                 fv2 = filter (/= f) $ allFreeVars env ast2
             in fastNub $ fv1 ++ fv2
@@ -45,7 +45,7 @@ allFreeVars env ast =
 globaliseFunctions :: AST -> FunctionEnv
 globaliseFunctions ast = 
     let (a, (_, env)) = runState (globaliseFunctionsImpl ast) (0, Map.empty)
-        newEnv = Map.insert "0main" ([], AFun "0arg" TUnit a (TFun TUnit (astraType a))) env
+        newEnv = Map.insert "0main" ([], AFun "0arg" TUnit a) env
     in untilFixedPoint populateFreeVars newEnv
 
 populateFreeVars :: FunctionEnv -> FunctionEnv
@@ -55,8 +55,8 @@ populateFreeVars env = Map.map changeFreeVars env
 
 globaliseFunctionsImpl :: AST -> GlobaliseState AST
 globaliseFunctionsImpl = \case
-    AFun s t ast t'-> globaliseFunctionsImpl (ALetFun "lambda" s t ast (AVar "lambda" t') t')
-    ALetFun f x t ast1 ast2 _ -> do
+    AFun s t ast -> globaliseFunctionsImpl (ALetFun "lambda" s t ast (AVar "lambda" hole))
+    ALetFun f x t ast1 ast2 -> do
         let ft = TFun t (astraType ast1)
         newName <- globalName f
         -- Insert a placeholder, to tell recursive calls that the name will exist
@@ -65,15 +65,17 @@ globaliseFunctionsImpl = \case
         ast2' <- globaliseFunctionsImpl $ replaceVar f (AVar newName ft) ast2
 
         -- Insert the actual function body
-        newGlobalFunc newName ([], AFun x t ast1' ft)
+        newGlobalFunc newName ([], AFun x t ast1')
 
         -- Output the rest
         return ast2'
     ast -> globaliseFunctionsImpl >>:= ast
+    where
+        hole = internalError "Attempted to evaluate unfilled hole - this should never happen"
 
 allToCPS :: (Int, FunctionEnv) -> String -> GlobalisedFunction -> (Int, FunctionEnv)
 allToCPS (i, env) f (fv, ast) =
-    let (ast', j) = runState (cps ast (astraType ast) return) i
+    let (ast', j) = runState (cps ast return) i
     in (j, Map.insert f (fv, ast') env)
 
 {- "Continuation form" is an intermediate representation I made up in which 

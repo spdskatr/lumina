@@ -19,16 +19,16 @@ elimShadowingImpl env = \case
     AVar x t -> case env Map.!? x of
         Just s -> Just $ AVar s t
         Nothing -> unboundVarError x
-    AFun x t ast t' -> 
+    AFun x t ast -> 
         let newEnv = insertVar x x env
-        in Just $ AFun (newEnv Map.! x) t (elimShadowingImpl newEnv >:= ast) t'
-    ALet x t a1 a2 t' ->
+        in Just $ AFun (newEnv Map.! x) t (elimShadowingImpl newEnv >:= ast)
+    ALet x t a1 a2 ->
         let newEnv = insertVar x x env
-        in Just $ ALet (newEnv Map.! x) t (elimShadowingImpl env >:= a1) (elimShadowingImpl newEnv >:= a2) t'
-    ALetFun f x t a1 a2 t' ->
+        in Just $ ALet (newEnv Map.! x) t (elimShadowingImpl env >:= a1) (elimShadowingImpl newEnv >:= a2)
+    ALetFun f x t a1 a2 ->
         let fEnv = insertVar f f env
             xEnv = insertVar x x fEnv
-        in Just $ ALetFun (fEnv Map.! f) (xEnv Map.! x) t (elimShadowingImpl xEnv >:= a1) (elimShadowingImpl fEnv >:= a2) t'
+        in Just $ ALetFun (fEnv Map.! f) (xEnv Map.! x) t (elimShadowingImpl xEnv >:= a1) (elimShadowingImpl fEnv >:= a2)
     _ -> Nothing
 
 insertVar :: String -> String -> Map String String -> Map String String

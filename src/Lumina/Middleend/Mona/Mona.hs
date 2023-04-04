@@ -1,6 +1,6 @@
 module Lumina.Middleend.Mona.Mona (MContEnv, MAtom (..), MValue (..), MExpr (..), MonaFunction(..), (>:=), toMonadicForm, astraToMona) where
 
-import Lumina.Middleend.Astra.Astra (UnaryOp, BinaryOp, AST (..))
+import Lumina.Middleend.Astra.Astra (UnaryOp, BinaryOp, AST (..), astraType)
 import Lumina.Utils (internalError, indent, orElse)
 
 import Data.Map.Strict (Map)
@@ -25,7 +25,7 @@ import Lumina.Middleend.Typing (LuminaType (..))
  -}
 
 data ContType
-    = ContInline String LuminaType AST LuminaType
+    = ContInline String LuminaType AST
     | ContReturn
 
 type MContEnv = Map String ContType
@@ -98,12 +98,12 @@ getMValue a k = case a of
     AInt n -> k (MInt n)
     AUnit -> k MUnit
     AVar s _ -> k (MVar s)
-    AUnaryOp uo ast t -> do
+    AUnaryOp uo ast -> do
         v <- tmpVar
-        getMValue ast (\r -> MLet v t (MUnary uo r) <$> k (MVar v))
-    ABinaryOp bo ast1 ast2 t -> do
+        getMValue ast (\r -> MLet v (astraType a) (MUnary uo r) <$> k (MVar v))
+    ABinaryOp bo ast1 ast2 -> do
         v <- tmpVar
-        getMValue ast1 (\r -> getMValue ast2 (\s -> MLet v t (MBinary bo r s) <$> k (MVar v)))
+        getMValue ast1 (\r -> getMValue ast2 (\s -> MLet v (astraType a) (MBinary bo r s) <$> k (MVar v)))
     AAssign ast1 ast2 -> do
         v <- tmpVar
         getMValue ast1 (\r -> getMValue ast2 (\s -> MAssign r s . MLet v TUnit (MJust MUnit) <$> k (MVar v)))
@@ -113,6 +113,10 @@ getMValue a k = case a of
             i <- get
             put (i+1)
             return (show i ++ "val")
+
+unpackCont :: LuminaType -> (LuminaType, LuminaType)
+unpackCont (TFun t1 (TFun (TFun t2 _) _)) = (t1, t2)
+unpackCont t = monadicFormError ("Could not unpack type " ++ show t ++ " as it is not a continuation.")
 
 toMonadicFormImpl :: MContEnv -> AST -> State Int MExpr
 toMonadicFormImpl env a = case a of
@@ -125,30 +129,33 @@ toMonadicFormImpl env a = case a of
     ABinaryOp {} -> trivial
     AAssign {} -> trivial
     -- Cont continuations
-    AApp (AApp a1 a2 _) (AFun x t a3 _) _ ->
-        getMValue a1 (\p -> getMValue a2 (\q -> MLet x t (MApp p q) <$> recOn a3))
-    AApp (AApp a1 a2 t1) (AVar k _) t2 -> case env Map.!? k of
-        Just (ContInline x t a3 t') -> recOn (AApp (AApp a1 a2 t1) (AFun x t a3 t') t2)
+    AApp (AApp a1 a2) (AFun x t a3) -> do
+        let (inType, outType) = unpackCont t
+        getMValue a1 (\p -> getMValue a2 (\q -> MLet x (TFun inType outType) (MApp p q) <$> recOn a3))
+    AApp (AApp a1 a2) (AVar k _) -> case env Map.!? k of
+        Just (ContInline x t a3) -> recOn (AApp (AApp a1 a2) (AFun x t a3))
         Just ContReturn -> do
+            let (_, retType) = unpackCont (astraType a1)
             ret <- retVar
-            getMValue a1 (\p -> getMValue a2 (\q -> return $ MLet ret t2 (MApp p q) (MReturn (MVar ret))))
+            getMValue a1 (\p -> getMValue a2 (\q -> return $ MLet ret retType (MApp p q) (MReturn (MVar ret))))
         Nothing -> monadicFormError ("could not find continuation: " ++ show k)
     -- Jump continuations
-    AApp (AFun x _ a1 _) (AFun y t a2 t') _ ->
-        recWithCont x (ContInline y t a2 t') a1
-    AApp (AFun x t a1 _) (AVar k _) _ -> case env Map.!? k of
+    AApp (AFun x _ a1) (AFun y t a2) ->
+        recWithCont x (ContInline y t a2) a1
+    AApp (AFun x t a1) (AVar k _) -> case env Map.!? k of
         Just p -> recWithCont x p a1
         Nothing -> MLet x t (MJust $ MVar k) <$> toMonadicFormImpl env a1
-    AApp (AFun x t a1 _) a2 _ -> getMValue a2 (\p -> MLet x t (MJust p) <$> toMonadicFormImpl env a1)
+    AApp (AFun x t a1) a2 -> getMValue a2 (\p -> MLet x t (MJust p) <$> toMonadicFormImpl env a1)
     -- Environment continuations
-    AApp (AVar k _) ast tres -> case env Map.!? k of
-        Just (ContInline x t a1 t') -> recOn (AApp (AFun x t a1 t') ast tres)
+    AApp (AVar k _) ast -> case env Map.!? k of
+        Just (ContInline x t a1) -> recOn (AApp (AFun x t a1) ast)
         Just ContReturn -> getMValue ast (return . MReturn)
         Nothing -> monadicFormError ("could not find continuation: " ++ show k)
     -- If statements
-    AIf ast ast' ast2 _ -> getMValue ast (\p -> MIf p <$> recOn ast' <*> recOn ast2)
+    AIf ast ast' ast2 -> getMValue ast (\p -> MIf p <$> recOn ast' <*> recOn ast2)
     _ -> monadicFormError ("encountered invalid expression: " ++ show a)
     where
+
         trivial = getMValue a (return . MReturn)
         recOn = toMonadicFormImpl env
         recWithCont x k = toMonadicFormImpl (Map.insert x k env)
@@ -165,5 +172,5 @@ astraToMona :: AST -> Map String MonaFunction
 astraToMona ast = Map.mapWithKey translateChunk $ toContinuationForm ast
     where
         translateChunk name (fv,a) = case a of
-            (AFun x _ (AFun k _ a' _) _) -> MonaFunction { getName = name, getFV = fv, getArg = x, getBody = toMonadicForm k a' }
+            (AFun x _ (AFun k _ a')) -> MonaFunction { getName = name, getFV = fv, getArg = x, getBody = toMonadicForm k a' }
             _ -> internalError $ "Could not translate to Mona because Astra was not in continuation form:\n" ++ show a

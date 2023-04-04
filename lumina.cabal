@@ -83,6 +83,7 @@ test-suite lumina-test
       Lumina.Tests.ParserGenTest
       Lumina.Tests.ToyLanguage1
       Lumina.Tests.ToyLanguage2
+      Lumina.Tests.Typing
       Paths_lumina
   hs-source-dirs:
       test

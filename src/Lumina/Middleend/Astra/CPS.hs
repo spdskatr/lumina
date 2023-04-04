@@ -17,7 +17,7 @@ module Lumina.Middleend.Astra.CPS (cps, cpsTail, toCPS) where
 import Lumina.Middleend.Astra.Astra (AST(..), BinaryOp(..), astraType)
 
 import Control.Monad.Trans.State.Strict (State, get, put, evalState)
-import Lumina.Middleend.Typing (LuminaType (..), getReturnType)
+import Lumina.Middleend.Typing (LuminaType (..))
 
 type CPSTable a = State Int a
 
@@ -27,111 +27,110 @@ newVar label = do
     put (i+1)
     return $ show i ++ label
 
-liftCont :: String -> LuminaType -> LuminaType -> (AST -> CPSTable AST) -> CPSTable AST
-liftCont label t tres k = do
-    r <- newVar label
-    inner <- k (AVar r t)
-    return $ AFun r t inner (TFun t tres)
-
 contType :: LuminaType -> LuminaType
+contType TAny = TAny
 contType TInt = TInt
 contType TBool = TBool
 contType TUnit = TUnit
 contType (TRef t) = TRef (contType t)
-contType (TFun a b) = TFun a (TFun (TFun b b) b)
+contType (TFun t1 t2) = TFun (contType t1) (TFun (TFun (contType t2) TAny) TAny)
 
-cps :: AST -> LuminaType -> (AST -> CPSTable AST) -> CPSTable AST
-cps ast tres k = case ast of
+liftCont :: String -> LuminaType -> (AST -> CPSTable AST) -> CPSTable AST
+liftCont label t k = do
+    r <- newVar label
+    inner <- k (AVar r t)
+    return $ AFun r t inner
+
+cps :: AST -> (AST -> CPSTable AST) -> CPSTable AST
+cps ast k = case ast of
     ABool b -> k (ABool b)
     AInt n -> k (AInt n)
     AUnit -> k AUnit
     AVar s t -> k (AVar s (contType t))
-    AApp ast' ast2 t -> do
-        cont <- liftCont "cont" t tres k
-        cps ast' tres (\f -> cps ast2 tres (\a -> return (AApp (AApp f a (TFun (TFun t tres) tres)) cont tres)))
-    AUnaryOp uo ast' t -> cps ast' tres (\a -> k $ AUnaryOp uo a t)
-    ABinaryOp bo ast' ast2 t ->
+    AApp ast' ast2 -> do
+        let t = contType $ astraType ast
+        cont <- liftCont "cont" t k
+        cps ast' (\f -> cps ast2 (\a -> return (AApp (AApp f a) cont)))
+    AUnaryOp uo ast' -> cps ast' (k . AUnaryOp uo)
+    ABinaryOp bo ast' ast2 ->
         case bo of
-            OpOr -> cps (AIf ast' (ABool True) ast2 TBool) tres k
-            OpAnd -> cps (AIf ast' ast2 (ABool False) TBool) tres k
-            _ -> cps ast' tres (\a -> cps ast2 tres (\b -> k $ ABinaryOp bo a b t))
-    AAssign ast' ast2 -> cps ast' tres (\a -> cps ast2 tres (k . AAssign a))
-    AIf acond athen aelse t -> cps acond tres $ \a -> do
+            OpOr -> cps (AIf ast' (ABool True) ast2) k
+            OpAnd -> cps (AIf ast' ast2 (ABool False)) k
+            _ -> cps ast' (\a -> cps ast2 (k . ABinaryOp bo a))
+    AAssign ast' ast2 -> cps ast' (\a -> cps ast2 (k . AAssign a))
+    AIf acond athen aelse -> cps acond $ \a -> do
         -- Note: I do not want to duplicate the k continuation as it may be large.
         -- Hence, I lift the continuation to be evaluated at execution time.
         -- Correction: The continuation seems to be replicated at most twice, since
         -- cps_tail will never replicate the continuation it's given.
-        c <- liftCont "jump" t tres k
-        cpsthen <- cpsTail athen tres c
-        cpselse <- cpsTail aelse tres c
-        return (AIf a cpsthen cpselse tres)
-    AFun s t ast' t' -> do
-        let rt = getReturnType t'
+        let t = astraType athen
+        c <- liftCont "jump" t k
+        cpsthen <- cpsTail athen c
+        cpselse <- cpsTail aelse c
+        return (AIf a cpsthen cpselse)
+    AFun s t ast' -> do
+        let rt = contType $ astraType ast'
         let kt = TFun rt rt
-        let ct = TFun kt rt
         c <- newVar "k"
-        res <- cpsTail ast' rt (AVar c kt)
-        k (AFun s t (AFun c kt res ct) (TFun t ct))
-    ALet x t ast' ast2 _ -> do
-        res <- cps ast2 tres k
-        cps ast' tres (\a -> return $ AApp (AFun x t res (TFun t tres)) a tres)
-    ALetFun f x t ast' ast2 _ -> do
-        let rt = astraType ast'
+        res <- cpsTail ast' (AVar c kt)
+        k (AFun s (contType t) (AFun c kt res))
+    ALet x t ast' ast2 -> do
+        res <- cps ast2 k
+        cps ast' (return . AApp (AFun x (contType t) res))
+    ALetFun f x t ast' ast2 -> do
+        let rt = contType $ astraType ast'
         let kt = TFun rt rt
-        let ct = TFun kt rt
         c <- newVar "k"
-        res <- cpsTail ast' rt (AVar c kt)
-        outer <- cps ast2 tres k
-        return (ALetFun f x t (AFun c kt res ct) outer tres)
-    ASeq ast' ast2 _ -> do
+        res <- cpsTail ast' (AVar c kt)
+        outer <- cps ast2 k
+        return (ALetFun f x (contType t) (AFun c kt res) outer)
+    ASeq ast' ast2 -> do
         -- We need to lift the continuation to make sure that our expression
         -- actually gets evaluated
-        c <- liftCont "jump" TUnit tres (\_ -> cps ast2 tres k)
-        cpsTail ast' tres c
+        c <- liftCont "jump" TAny (\_ -> cps ast2 k)
+        cpsTail ast' c
 
-cpsTail :: AST -> LuminaType -> AST -> CPSTable AST
-cpsTail ast tres k = case ast of
-    ABool b -> return (AApp k (ABool b) tres)
-    AInt n -> return (AApp k (AInt n) tres)
-    AUnit -> return (AApp k AUnit tres)
-    AVar s t -> return (AApp k (AVar s (contType t)) tres)
-    AApp ast' ast2 t -> cps ast' tres (\f -> cps ast2 tres (\a -> return (AApp (AApp f a (TFun (TFun t tres) tres)) k tres)))
-    AUnaryOp uo ast' t -> cps ast' tres (\a -> return $ AApp k (AUnaryOp uo a t) tres)
-    ABinaryOp bo ast' ast2 t ->
+cpsTail :: AST -> AST -> CPSTable AST
+cpsTail ast k = case ast of
+    ABool b -> return (AApp k (ABool b))
+    AInt n -> return (AApp k (AInt n))
+    AUnit -> return (AApp k AUnit)
+    AVar s t -> return (AApp k (AVar s (contType t)))
+    AApp ast' ast2 -> cps ast' (\f -> cps ast2 (\a -> return (AApp (AApp f a) k)))
+    AUnaryOp uo ast' -> cps ast' (return . AApp k . AUnaryOp uo)
+    ABinaryOp bo ast' ast2 ->
         case bo of
-            OpOr -> cpsTail (AIf ast' (ABool True) ast2 TBool) tres k
-            OpAnd -> cpsTail (AIf ast' ast2 (ABool False) TBool) tres k
-            _ -> cps ast' tres (\a -> cps ast2 tres (\b -> return $ AApp k (ABinaryOp bo a b t) tres))
-    AAssign ast' ast2 -> cps ast' tres (\a -> cps ast2 tres (\b -> return $ AApp k (AAssign a b) tres))
-    AIf acond athen aelse t -> cps acond tres $ \a -> do
+            OpOr -> cpsTail (AIf ast' (ABool True) ast2) k
+            OpAnd -> cpsTail (AIf ast' ast2 (ABool False)) k
+            _ -> cps ast' (\a -> cps ast2 (return . AApp k . ABinaryOp bo a))
+    AAssign ast' ast2 -> cps ast' (\a -> cps ast2 (return . AApp k . AAssign a))
+    AIf acond athen aelse -> cps acond $ \a -> do
         -- Note: I do not want to duplicate the k continuation as it may be large.
         -- This can sometimes produce useless redexes (like 1 becoming (\x -> x) 1)
-        let kt = TFun t tres
+        let kt = astraType k
         c <- newVar "jump"
-        cpsthen <- cpsTail athen tres (AVar c kt)
-        cpselse <- cpsTail aelse tres (AVar c kt)
-        return (AApp (AFun c kt (AIf a cpsthen cpselse tres) (TFun kt tres)) k tres)
-    AFun s t ast' t' -> do
-        let rt = getReturnType t'
+        cpsthen <- cpsTail athen (AVar c kt)
+        cpselse <- cpsTail aelse (AVar c kt)
+        return (AApp (AFun c kt (AIf a cpsthen cpselse)) k)
+    AFun s t ast' -> do
+        let rt = contType $ astraType ast'
         let kt = TFun rt rt
-        let ct = TFun kt rt
         c <- newVar "k"
-        res <- cpsTail ast' rt (AVar c kt)
-        return (AApp k (AFun s t (AFun c kt res ct) (TFun t ct)) tres)
-    ALet x t ast' ast2 _ -> do
-        res <- cpsTail ast2 tres k
-        cps ast' tres (\a -> return $ AApp (AFun x t res (TFun t tres)) a tres)
-    ALetFun f x t ast' ast2 _ -> do
-        let rt = astraType ast'
+        res <- cpsTail ast' (AVar c kt)
+        return (AApp k (AFun s (contType t) (AFun c kt res)))
+    ALet x t ast' ast2 -> do
+        res <- cpsTail ast2 k
+        cps ast' (return . AApp (AFun x (contType t) res))
+    ALetFun f x t ast' ast2 -> do
+        let rt = contType $ astraType ast'
         let kt = TFun rt rt
-        let ct = TFun kt rt
         c <- newVar "k"
-        res <- cpsTail ast' rt (AVar c kt)
-        outer <- cpsTail ast2 tres k
-        return (ALetFun f x t (AFun c kt res ct) outer tres)
-    ASeq ast' ast2 _ -> do
-        c <- liftCont "jump" TUnit tres (\_ -> cpsTail ast2 tres k)
-        cpsTail ast' tres c
+        res <- cpsTail ast' (AVar c kt)
+        outer <- cpsTail ast2 k
+        return (ALetFun f x (contType t) (AFun c kt res) outer)
+    ASeq ast' ast2 -> do
+        c <- liftCont "jump" TAny (\_ -> cpsTail ast2 k)
+        cpsTail ast' c
 
 toCPS :: AST -> AST
-toCPS ast = evalState (cps ast (astraType ast) return) 0
+toCPS ast = evalState (cps ast return) 0

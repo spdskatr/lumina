@@ -7,11 +7,10 @@ import Lumina.Middleend.Shortcuts (transform)
 import Lumina.Frontend.ParserGen (LRParser)
 import Lumina.Frontend.Lexer (TokenTag)
 import Lumina.Frontend.LuminaGrammar (LNT)
-import Lumina.Middleend.Astra.Astra (AST (..), freeVars, (><>))
+import Lumina.Middleend.Astra.Astra (AST (..))
 
-import Data.Set (Set)
-import qualified Data.Set as Set
 import Control.Monad (forM_)
+import Lumina.Tests.Typing (testWellTyped)
 
 type TestCase = (String, String, Value)
 
@@ -79,26 +78,12 @@ equalValues (VBool a) (VBool b) = a == b
 equalValues (VInt a) (VInt b) = a == b
 equalValues _ _ = False
 
-checkFreeVarsAgreeWithEnv :: String -> Set String -> AST -> [String]
-checkFreeVarsAgreeWithEnv name env ast =
-    case filter (`Set.notMember` env) (freeVars ast) of
-        [] -> case ast of
-            AFun x _ a1 _ -> checkFreeVarsAgreeWithEnv name (Set.insert x env) a1
-            ALet x _ a1 a2 _ ->
-                let env2 = Set.insert x env
-                in checkFreeVarsAgreeWithEnv name env a1 <> checkFreeVarsAgreeWithEnv name env2 a2
-            ALetFun f x _ a1 a2 _ ->
-                let envF = Set.insert f env
-                    envX = Set.insert x envF
-                in checkFreeVarsAgreeWithEnv name envX a1 <> checkFreeVarsAgreeWithEnv name envF a2
-            _ -> checkFreeVarsAgreeWithEnv name env ><> ast
-        l -> ["test " ++ name ++ ": AST " ++ show ast ++ " failed free variables check; variable " ++ x ++ " not found\n" | x <- l]
-
-testFreeVars :: (String -> AST) -> TestCase -> Either String ()
-testFreeVars e (name, code, _) =
-    case checkFreeVarsAgreeWithEnv name Set.empty (e code) of
-        [] -> Right ()
-        l -> Left $ "(" ++ show (length l) ++ " error(s) total) " ++ head l
+testTyping :: String -> (String -> AST) -> TestCase -> Either String ()
+testTyping codename e (name, code, _) = 
+    let a = e code
+    in case testWellTyped a of
+      Left err -> Left $ "test testTyping_" ++ codename ++ "_" ++ name ++ " failed: " ++ err
+      Right () -> Right ()
 
 regressionTest :: String -> (String -> Value) -> TestCase -> Either String ()
 regressionTest codename e (name, code, val) =
@@ -106,14 +91,14 @@ regressionTest codename e (name, code, val) =
     if equalValues res val then Right () else Left $ "test " ++ codename ++ "_" ++ name ++ " failed; expected " ++ show val ++ ", got " ++ show res
 
 testWithEvaluator :: String -> (String -> Value) -> Either String ()
-testWithEvaluator codename e = do
+testWithEvaluator codename e =
     forM_ testCases (regressionTest codename e)
 
 allTests :: LRParser LNT TokenTag -> Either String ()
 allTests lr = do
-    forM_ testCases $ testFreeVars (fst . getAST lr)
+    forM_ testCases $ testTyping "ast" (fst . getAST lr)
     testWithEvaluator "interp" (fst . eval lr)
-    forM_ testCases $ testFreeVars (transform . fst . getAST lr)
+    forM_ testCases $ testTyping "cps" (transform . fst . getAST lr)
     testWithEvaluator "interpCPS" (getValue . transform . fst . getAST lr)
     testWithEvaluator "interpContForm" (getValueCF . fst . getAST lr)
 

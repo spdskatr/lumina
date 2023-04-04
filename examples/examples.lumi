@@ -120,3 +120,5 @@ with fun f (x:int) : int = x do
         end
     end
 end
+
+with a : int# = #0 do while !a < 5 do a := !a + 1 end; !a end

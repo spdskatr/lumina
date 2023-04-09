@@ -3,6 +3,7 @@ import Lumina.Middleend.Mona.Mona (MAtom (..), MExpr (..), MValue (..))
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Lumina.Utils (orElse)
+import Lumina.Middleend.Typing (LuminaType(..))
 
 type RenameEnv = Map String MAtom
 
@@ -11,6 +12,8 @@ propagateConsts = propagateConstsImpl Map.empty
 
 propagateConstsImpl :: RenameEnv -> MExpr -> MExpr
 propagateConstsImpl env ex = case ex of
+    MLet s TUnit mv me ->
+        MLet s TUnit mv (propagateConstsImpl (Map.insert s MUnit env) me)
     MLet s t mv me ->
         let subMV mv' = MLet s t mv' (recurse me)
         in case processVal mv of

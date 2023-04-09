@@ -4,6 +4,11 @@ import Lumina.Middleend.Mona.Mona (MExpr (..), MAtom (..), MValue (..))
 elimDeadCode :: MExpr -> MExpr
 elimDeadCode = fst . elimDeadCodeImpl
 
+-- Determines if code can alter the state of the store
+hasSideEffects :: MValue -> Bool
+hasSideEffects (MApp _ _) = True
+hasSideEffects _ = False
+
 elimDeadCodeImpl :: MExpr -> (MExpr, [String])
 elimDeadCodeImpl (MReturn a) = (MReturn a, matchVar a)
 elimDeadCodeImpl (MAssign ma ma' me) = 
@@ -17,7 +22,7 @@ elimDeadCodeImpl (MIf ma me1 me2) =
     in (MIf ma me1' me2', matchVar ma ++ vs1 ++ vs2)
 elimDeadCodeImpl (MLet s t mv me) =
     let (me', vs) = elimDeadCodeImpl me
-    in if s `elem` vs then
+    in if s `elem` vs || hasSideEffects mv then
         (MLet s t mv me', matchVal mv ++ [x | x <- vs, x /= s])
     else
         (me', vs)

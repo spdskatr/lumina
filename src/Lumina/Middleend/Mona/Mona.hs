@@ -99,13 +99,7 @@ toMona ast k = case ast of
     AVar s _ -> k (MVar s)
     AApp a1 a2 t -> toMona a1 (\a1' -> toMona a2 (\a2' -> newLet (MApp a1' a2') t))
     AUnaryOp uo a t -> toMona a $ \a' ->
-        let tres = case uo of
-                OpNot -> TBool
-                OpRef -> TRef t
-                OpBang -> case t of
-                    TRef t' -> t'
-                    _ -> monadicFormError $ "Dereferencing value of type " ++ show t ++ ", which is not a reference"
-        in newLet (MUnary uo a') tres
+        newLet (MUnary uo a') t
     ABinaryOp OpAnd a1 a2 _ -> toMona a1 $ \a1' -> do
         m2 <- toMona a2 k
         m3 <- k (MBool False)

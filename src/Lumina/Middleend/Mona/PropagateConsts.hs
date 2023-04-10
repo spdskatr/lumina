@@ -1,5 +1,5 @@
 module Lumina.Middleend.Mona.PropagateConsts (propagateConsts) where
-import Lumina.Middleend.Mona.Mona (MAtom (..), MExpr (..), MValue (..))
+import Lumina.Middleend.Mona.Mona (MAtom (..), MExpr (..), MOper (..))
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Lumina.Utils (orElse)

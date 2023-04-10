@@ -31,6 +31,7 @@ library
       Lumina.Frontend.ParserGen
       Lumina.Frontend.Shortcuts
       Lumina.Interpreter.AstraInterpreter
+      Lumina.Interpreter.MonaInterpreter
       Lumina.Middleend.Astra.Astra
       Lumina.Middleend.Astra.ElimShadowing
       Lumina.Middleend.Astra.HoistFunctions

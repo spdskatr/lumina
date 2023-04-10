@@ -1,17 +1,17 @@
-module Lumina.Middleend.Shortcuts (optMona, optMonaProgram) where
+module Lumina.Middleend.Shortcuts (optMonaProgram) where
 
-import Lumina.Middleend.Mona.Mona (MExpr, MonaFunction (MonaFunction))
+import Lumina.Middleend.Mona.Mona (MonaFunction (MonaFunction), MonaTranslationUnit)
 import Lumina.Utils (untilFixedPoint)
 import Lumina.Middleend.Mona.PropagateConsts (propagateConsts)
 import Lumina.Middleend.Mona.OptimiseArith (optimiseArith)
 
-import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Lumina.Middleend.Mona.ElimDeadCode (elimDeadCode)
+import Lumina.Middleend.Astra.HoistFunctions (TypedVar(TypedVar))
 
-optMona :: MExpr -> MExpr
-optMona = untilFixedPoint (elimDeadCode . optimiseArith . propagateConsts)
 
-optMonaProgram :: Map String MonaFunction -> Map String MonaFunction
-optMonaProgram = Map.map $ \(MonaFunction f fv x t t' body) ->
-    MonaFunction f fv x t t' (optMona body)
+optMonaProgram :: MonaTranslationUnit -> MonaTranslationUnit
+optMonaProgram fs = Map.map (\(MonaFunction f fv x t t' body) -> MonaFunction f fv x t t' (optMona body)) fs
+    where
+        optMona = untilFixedPoint (elimDeadCode captureContext . optimiseArith . propagateConsts)
+        captureContext = Map.map (\(MonaFunction _ fv _ _ _ _) -> map (\(TypedVar x _) -> x) fv) fs

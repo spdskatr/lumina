@@ -10,6 +10,9 @@ import Lumina.Middleend.Astra.Astra (AST (..))
 
 import Control.Monad (forM_)
 import Lumina.Tests.Typing (testWellTyped)
+import Lumina.Interpreter.MonaInterpreter (getMonaValue)
+import Lumina.Middleend.Mona.Mona (astraToMona)
+import Lumina.Middleend.Shortcuts (optMonaProgram)
 
 type TestCase = (String, String, Value)
 
@@ -97,6 +100,8 @@ allTests :: LRParser LNT TokenTag -> Either String ()
 allTests lr = do
     forM_ testCases $ testTyping "ast" (fst . getAST lr)
     testWithEvaluator "interp" (fst . eval lr)
+    testWithEvaluator "interpMona" (getMonaValue . astraToMona . fst . getAST lr)
+    testWithEvaluator "interpMonaTwo" (getMonaValue . optMonaProgram . astraToMona . fst . getAST lr)
 
 runCodeTest :: IO ()
 runCodeTest = do

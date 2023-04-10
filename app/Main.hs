@@ -15,6 +15,7 @@ import Lumina.Middleend.Mona.Mona (astraToMona)
 
 import qualified Data.Map.Strict as Map
 import Control.Monad (forM_)
+import Lumina.Interpreter.MonaInterpreter (getMonaValue)
 
 -- WARNING - this may take several minutes to run
 genAndPrintLR1Parser :: IO ()
@@ -68,6 +69,15 @@ demoMona = do
     let env = optMonaProgram (astraToMona a)
     forM_ (Map.toList env) (putStrLn . show . snd)
 
+demoMonaInterpreter :: IO ()
+demoMonaInterpreter = do
+    pars <- loadParserFrom "data/lr1.txt"
+    putStrLn "Enter Lumina code and I'll output the monadic form representation. Press CTRL-D when you're done."
+    inp <- getContents
+    let a = fst $ getAST pars inp
+    let env = optMonaProgram (astraToMona a)
+    putStrLn $ show $ getMonaValue env
+
 
 main :: IO ()
 main = do
@@ -77,7 +87,8 @@ main = do
     \ 3 - Output Astra (Frontend IR)\n\
     \ 4 - Demo Astra interpreter\n\
     \ 5 - Demo hoisted functions\n\
-    \ 6 - Demo Mona (Middleend IR)"
+    \ 6 - Demo Mona (Middleend IR)\n\
+    \ 7 - Demo Mona interpreter"
     i <- readLn :: IO Int
     case i of
         1 -> genAndPrintLR1Parser
@@ -86,4 +97,5 @@ main = do
         4 -> demoInterpreter
         5 -> demoGlobalisedForm
         6 -> demoMona
+        7 -> demoMonaInterpreter
         _ -> error $ "Unrecognised option " ++ show i

@@ -1,15 +1,15 @@
 module Lumina.Middleend.Mona.OptimiseArith (optimiseArith) where
-import Lumina.Middleend.Mona.Mona (MExpr (..), (>:=), MValue (..), MAtom (..))
+import Lumina.Middleend.Mona.Mona (MExpr (..), (>:=), MOper (..), MAtom (..))
 import Lumina.Middleend.Astra.Astra (UnaryOp (..), BinaryOp (..))
 
-justAtom :: MAtom -> Maybe MValue
+justAtom :: MAtom -> Maybe MOper
 justAtom = Just . MJust
 
-optNot :: MAtom -> Maybe MValue
+optNot :: MAtom -> Maybe MOper
 optNot (MBool b) = justAtom (MBool (not b))
 optNot _ = Nothing
 
-optBoolOp :: BinaryOp -> Bool -> MAtom -> Maybe MValue
+optBoolOp :: BinaryOp -> Bool -> MAtom -> Maybe MOper
 optBoolOp OpAnd True e = justAtom e
 optBoolOp OpAnd False _ = justAtom (MBool False)
 optBoolOp OpOr True _ = justAtom (MBool True)
@@ -18,12 +18,12 @@ optBoolOp OpBoolEqual True e = justAtom e
 optBoolOp OpBoolEqual False e = optNot e
 optBoolOp _ _ _ = Nothing
 
-optAdd :: Int -> MAtom -> Maybe MValue
+optAdd :: Int -> MAtom -> Maybe MOper
 optAdd 0 e = justAtom e
 optAdd a (MInt b) = justAtom (MInt (a+b))
 optAdd _ _ = Nothing
 
-optMul :: Int -> MAtom -> Maybe MValue
+optMul :: Int -> MAtom -> Maybe MOper
 optMul 0 _ = justAtom (MInt 0)
 optMul 1 e = justAtom e
 optMul a (MInt b) = justAtom (MInt (a*b))

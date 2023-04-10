@@ -1,4 +1,4 @@
-module Lumina.Middleend.Mona.Mona (MAtom (..), MValue (..), MExpr (..), MonaFunction(..), (>:=), toMona, astraToMona) where
+module Lumina.Middleend.Mona.Mona (MAtom (..), MOper (..), MExpr (..), MonaFunction(..), MonaTranslationUnit, (>:=), toMona, astraToMona) where
 
 import Lumina.Middleend.Astra.Astra (UnaryOp (..), BinaryOp (..), AST (..))
 import Lumina.Utils (internalError, indent, orElse)
@@ -34,6 +34,8 @@ data MonaFunction = MonaFunction
     , getBody :: MExpr
     }
 
+type MonaTranslationUnit = Map String MonaFunction
+
 instance Show MonaFunction where
     show (MonaFunction f fv x t t' e) =
         "define " ++ f ++ "[" ++ intercalate ", " (map show fv) ++ "](" ++ x ++ " : " ++ show t ++ ") : " ++ show t' ++ " =\n" ++ indent (show e)
@@ -51,21 +53,21 @@ instance Show MAtom where
     show (MBool b) = show b
     show MUnit = show ()
 
-data MValue
+data MOper
     = MJust MAtom
     | MUnary UnaryOp MAtom
     | MBinary BinaryOp MAtom MAtom
     | MApp MAtom MAtom
     deriving Eq
 
-instance Show MValue where
+instance Show MOper where
     show (MJust val) = show val
     show (MUnary uo val) = show uo ++ show val
     show (MBinary bo v1 v2) = "(" ++ show v1 ++ " " ++ show bo ++ " " ++ show v2 ++ ")"
     show (MApp v1 v2) = show v1 ++ " " ++ show v2
 
 data MExpr
-    = MLet String LuminaType MValue MExpr
+    = MLet String LuminaType MOper MExpr
     | MAssign MAtom MAtom MExpr
     | MIf MAtom MExpr MExpr
     | MReturn MAtom
@@ -134,7 +136,7 @@ toMona ast k = case ast of
             nx <- k (MVar ident)
             return $ MLet ident t v nx
 
-astraToMona :: AST -> Map String MonaFunction
+astraToMona :: AST -> MonaTranslationUnit
 astraToMona ast = Map.mapWithKey translateChunk $ globaliseFunctions $ elimShadowing ast
     where
         translateChunk name (fv,a) = case a of

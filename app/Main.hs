@@ -72,7 +72,7 @@ demoMona = do
 demoMonaInterpreter :: IO ()
 demoMonaInterpreter = do
     pars <- loadParserFrom "data/lr1.txt"
-    putStrLn "Enter Lumina code and I'll output the monadic form representation. Press CTRL-D when you're done."
+    putStrLn "Enter Lumina code and I'll convert it to Mona, optimise it and then interpret it. Press CTRL-D when you're done."
     inp <- getContents
     let a = fst $ getAST pars inp
     let env = optMonaProgram (astraToMona a)

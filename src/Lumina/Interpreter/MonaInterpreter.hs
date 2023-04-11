@@ -21,10 +21,13 @@ getOperValue _ env (MJust a) = return $ getAtomValue env a
 getOperValue _ env (MApp a b) = case getAtomValue env a of
     VFun f -> f (getAtomValue env b)
     v -> internalError ("Left side of application is not a function, found " ++ show v ++ " instead")
+getOperValue cenv env (MCall f vs arg) = do
+    let cl = cenv Map.!? f `orElse` internalError ("function " ++ show f ++ " not found")
+    cl [getAtomValue env a | a <- vs] (getAtomValue env arg)
 getOperValue _ env (MUnary uo a) = applyUnaryOp uo (getAtomValue env a)
 getOperValue _ env (MBinary bo a b) = applyBinaryOp bo (getAtomValue env a) (getAtomValue env b)
 getOperValue cenv env (MMkClosure c as) = do
-    let cl = cenv Map.!? c `orElse` internalError ("Could not make closure: function " ++ show c ++ " not found")
+    let cl = cenv Map.!? c `orElse` internalError ("function " ++ show c ++ " not found")
     return $ VFun $ cl [getAtomValue env a | a <- as]
 
 interpretMona :: ClosureEnv -> Env -> MExpr -> State Store Value

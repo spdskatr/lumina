@@ -13,6 +13,7 @@ elimDeadCode (MonaFunction name fv x t t' body) =
 -- Determines if code can alter the state of the store
 hasSideEffects :: MOper -> Bool
 hasSideEffects (MApp _ _) = True
+hasSideEffects (MCall {}) = True
 hasSideEffects _ = False
 
 elimDeadCodeImpl :: MExpr -> (MExpr, [String])
@@ -39,6 +40,7 @@ matchVal (MJust ma) = matchVar ma
 matchVal (MUnary _ ma) = matchVar ma
 matchVal (MBinary _ ma ma') = matchVar ma ++ matchVar ma'
 matchVal (MApp ma ma') = matchVar ma ++ matchVar ma'
+matchVal (MCall _ vs a) = matchVar a ++ concatMap matchVar vs
 
 matchVar :: MAtom -> [String]
 matchVar (MVar x) = [x]

@@ -59,6 +59,7 @@ data MOper
     | MUnary UnaryOp MAtom
     | MBinary BinaryOp MAtom MAtom
     | MApp MAtom MAtom
+    | MCall String [MAtom] MAtom
     deriving Eq
 
 instance Show MOper where
@@ -66,7 +67,8 @@ instance Show MOper where
     show (MMkClosure cl env) = "MKCL " ++ show cl ++ " " ++ show env
     show (MUnary uo val) = show uo ++ show val
     show (MBinary bo v1 v2) = "(" ++ show v1 ++ " " ++ show bo ++ " " ++ show v2 ++ ")"
-    show (MApp v1 v2) = show v1 ++ " " ++ show v2
+    show (MApp v1 v2) = "APPLY " ++ show v1 ++ " " ++ show v2
+    show (MCall s args v) = s ++ "[" ++ intercalate "," (map show args) ++ "](" ++ show v ++ ")"
 
 data MExpr
     = MLet String LuminaType MOper MExpr

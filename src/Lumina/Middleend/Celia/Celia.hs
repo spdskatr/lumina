@@ -108,6 +108,7 @@ exprToCelia ds rs name (MLet x t o rest) = do
                     Nothing -> CCallCl (CLoc x) (CLoc c) (getCVal ma')
                     Just decl -> CCall (CLoc x) c (getCVal ma' : [CVar a | (a,_) <- tail (getArgs decl)])
                 _ -> celiaError ("Tried to call a function that is definitely not a function; found " ++ show ma)
+            MCall f vs ma -> undefined
             MMkClosure s as -> undefined
             MJust _ -> celiaError ("Tried to translate MJust expression " ++ show o ++ " which should have been removed during optimisation.")
     emitCInstr instr

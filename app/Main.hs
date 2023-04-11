@@ -63,7 +63,16 @@ demoGlobalisedForm = do
 demoMona :: IO ()
 demoMona = do
     pars <- loadParserFrom "data/lr1.txt"
-    putStrLn "Enter Lumina code and I'll output the monadic form representation. Press CTRL-D when you're done."
+    putStrLn "Enter Lumina code and I'll output the Mona IR. Press CTRL-D when you're done."
+    inp <- getContents
+    let a = fst $ getAST pars inp
+    let env = astraToMona a
+    forM_ (Map.toList env) (putStrLn . show . snd)
+
+demoOptMona :: IO ()
+demoOptMona = do
+    pars <- loadParserFrom "data/lr1.txt"
+    putStrLn "Enter Lumina code and I'll output the optimised Mona IR. Press CTRL-D when you're done."
     inp <- getContents
     let a = fst $ getAST pars inp
     let env = optMonaProgram (astraToMona a)
@@ -88,7 +97,8 @@ main = do
     \ 4 - Demo Astra interpreter\n\
     \ 5 - Demo hoisted functions\n\
     \ 6 - Demo Mona (Middleend IR)\n\
-    \ 7 - Demo Mona interpreter"
+    \ 7 - Demo Mona optimiser\n\
+    \ 8 - Demo Mona interpreter"
     i <- readLn :: IO Int
     case i of
         1 -> genAndPrintLR1Parser
@@ -97,5 +107,6 @@ main = do
         4 -> demoInterpreter
         5 -> demoGlobalisedForm
         6 -> demoMona
-        7 -> demoMonaInterpreter
+        7 -> demoOptMona
+        8 -> demoMonaInterpreter
         _ -> error $ "Unrecognised option " ++ show i

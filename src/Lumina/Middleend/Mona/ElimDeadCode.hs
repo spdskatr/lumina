@@ -1,15 +1,19 @@
 module Lumina.Middleend.Mona.ElimDeadCode (elimDeadCode, elimDeadCodeImpl) where
 
-import Lumina.Middleend.Mona.Mona (MExpr (..), MAtom (..), MOper (..))
+import Lumina.Middleend.Mona.Mona (MExpr (..), MAtom (..), MOper (..), MonaFunction (MonaFunction))
 
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Lumina.Utils (orElse)
+import Lumina.Middleend.Astra.HoistFunctions (TypedVar(..))
 
 type CaptureContext = Map String [String]
 
-elimDeadCode :: CaptureContext -> MExpr -> MExpr
-elimDeadCode cc = fst . elimDeadCodeImpl cc
+elimDeadCode :: CaptureContext -> MonaFunction -> MonaFunction
+elimDeadCode cc (MonaFunction name fv x t t' body) = 
+    let (body', vars) = elimDeadCodeImpl cc body
+        fv' = filter (\(TypedVar y _) -> y `elem` vars) fv
+    in MonaFunction name fv' x t t' body'
 
 -- Determines if code can alter the state of the store
 hasSideEffects :: MOper -> Bool

@@ -122,3 +122,11 @@ with fun f (x:int) : int = x do
 end
 
 with a : int# = #0 do while !a < 5 do a := !a + 1 end; !a end
+
+with fun f (x : int) : int = 
+    with a : unit = () do 
+        (fun (y : int) : int -> with y case | 0 -> 5 | _ -> f (y * 0) end end) x
+    end
+do
+    f 4
+end

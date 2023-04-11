@@ -32,7 +32,7 @@ data MonaFunction = MonaFunction
     , getArgType :: LuminaType
     , getResultType :: LuminaType
     , getBody :: MExpr
-    }
+    } deriving Eq
 
 type MonaTranslationUnit = Map String MonaFunction
 
@@ -98,6 +98,7 @@ toMona ast k = case ast of
     ABool b -> k (MBool b)
     AInt n -> k (MInt n)
     AUnit -> k MUnit
+    AVar _ TUnit -> k MUnit
     AVar s _ -> k (MVar s)
     AApp a1 a2 t -> toMona a1 (\a1' -> toMona a2 (\a2' -> newLet (MApp a1' a2') t))
     AUnaryOp uo a t -> toMona a $ \a' ->

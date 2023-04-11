@@ -9,9 +9,12 @@ import qualified Data.Map.Strict as Map
 import Lumina.Middleend.Mona.ElimDeadCode (elimDeadCode)
 import Lumina.Middleend.Astra.HoistFunctions (TypedVar(TypedVar))
 
-
 optMonaProgram :: MonaTranslationUnit -> MonaTranslationUnit
-optMonaProgram fs = Map.map (\(MonaFunction f fv x t t' body) -> MonaFunction f fv x t t' (optMona body)) fs
+optMonaProgram = untilFixedPoint optMonaProgramImpl
+
+optMonaProgramImpl :: MonaTranslationUnit -> MonaTranslationUnit
+optMonaProgramImpl fs = Map.map optMona fs
     where
-        optMona = untilFixedPoint (elimDeadCode captureContext . optimiseArith . propagateConsts)
+        toBody f (MonaFunction name fv x t t' e) = MonaFunction name fv x t t' (f e)
+        optMona = elimDeadCode captureContext . toBody optimiseArith . toBody propagateConsts
         captureContext = Map.map (\(MonaFunction _ fv _ _ _ _) -> map (\(TypedVar x _) -> x) fv) fs

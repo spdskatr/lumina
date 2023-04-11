@@ -16,10 +16,12 @@ propagateConstsImpl env ex = case ex of
         MLet s TUnit mv (propagateConstsImpl (Map.insert s MUnit env) me)
     MLet s t mv me ->
         let subMV mv' = MLet s t mv' (recurse me)
-        in case processVal mv of
+        in case mv of
             MJust ma ->
                 -- Expression will get removed in dead code elimination
                 MLet s t mv (propagateConstsImpl (Map.insert s (process ma) env) me)
+            MMkClosure c vs ->
+                subMV (MMkClosure c [process ma | ma <- vs])
             MUnary uo ma ->
                 subMV (MUnary uo (process ma))
             MBinary bo ma ma' ->
@@ -32,11 +34,6 @@ propagateConstsImpl env ex = case ex of
     MAssign ma ma' me ->
         MAssign (process ma) (process ma') (recurse me)
     where
-        processVal (MJust a) = MJust (process a)
-        processVal (MUnary uo a) = MUnary uo (process a)
-        processVal (MBinary bo a a') = MBinary bo (process a) (process a')
-        processVal (MApp a a') = MApp (process a) (process a')
-
         recurse = propagateConstsImpl env
 
         process (MVar x) = env Map.!? x `orElse` MVar x

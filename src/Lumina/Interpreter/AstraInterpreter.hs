@@ -37,8 +37,6 @@ data Value
     | VUnit
     | VRef StoreAddress
     | VFun (Value -> State Store Value)
-    | VClosure (Env -> Value -> State Store Value)
--- Env argument to VClosure allows it to capture variables from calling context
 
 instance Show Value where
     show (VInt i) = show i
@@ -46,7 +44,6 @@ instance Show Value where
     show VUnit = show "unit"
     show (VRef (StoreAddress a)) = "ref @ " ++ show a
     show (VFun _) = "(fun)"
-    show (VClosure _) = "(closure)"
 
 applyUnaryOp :: UnaryOp -> Value -> State Store Value
 applyUnaryOp OpNot (VBool b) = return $ VBool (not b)
@@ -76,9 +73,7 @@ interpret a env = case a of
     ABool b -> return (VBool b)
     AInt n -> return (VInt n)
     AUnit -> return VUnit
-    AVar s _ -> case env Map.! s of
-        VClosure cl -> return $ VFun (cl env)
-        v -> return v
+    AVar s _ -> return $ env Map.! s
     AApp a1 a2 _ -> do
         val1 <- interpret a1 env
         case val1 of

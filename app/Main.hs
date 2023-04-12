@@ -16,6 +16,7 @@ import Lumina.Middleend.Mona.Mona (astraToMona)
 import qualified Data.Map.Strict as Map
 import Control.Monad (forM_)
 import Lumina.Interpreter.MonaInterpreter (getMonaValue)
+import Lumina.Middleend.Celia.Celia (monaToCelia)
 
 -- WARNING - this may take several minutes to run
 genAndPrintLR1Parser :: IO ()
@@ -87,6 +88,16 @@ demoMonaInterpreter = do
     let env = optMonaProgram (astraToMona a)
     putStrLn $ show $ getMonaValue env
 
+demoCelia :: IO ()
+demoCelia = do
+    pars <- loadParserFrom "data/lr1.txt"
+    putStrLn "Enter Lumina code and I'll output the Celia IR. Press CTRL-D when you're done."
+    inp <- getContents
+    let a = fst $ getAST pars inp
+    let mtu = optMonaProgram (astraToMona a)
+    let ctu = monaToCelia mtu
+    forM_ (Map.toList ctu) (putStrLn . show . snd)
+
 
 main :: IO ()
 main = do
@@ -96,9 +107,10 @@ main = do
     \ 3 - Output Astra (Frontend IR)\n\
     \ 4 - Demo Astra interpreter\n\
     \ 5 - Demo hoisted functions\n\
-    \ 6 - Demo Mona (Middleend IR)\n\
+    \ 6 - Demo Mona (Middleend IR - ANF)\n\
     \ 7 - Demo Mona optimiser\n\
-    \ 8 - Demo Mona interpreter"
+    \ 8 - Demo Mona interpreter\n\
+    \ 9 - Demo Celia (Middleend IR - C--)"
     i <- readLn :: IO Int
     case i of
         1 -> genAndPrintLR1Parser
@@ -109,4 +121,5 @@ main = do
         6 -> demoMona
         7 -> demoOptMona
         8 -> demoMonaInterpreter
+        9 -> demoCelia
         _ -> error $ "Unrecognised option " ++ show i

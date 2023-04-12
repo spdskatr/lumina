@@ -54,7 +54,7 @@ data CType = CTBool | CTInt | CTPtr
 
 instance Show CType where
     show CTBool = "bool"
-    show CTInt = "int"
+    show CTInt = "long long"
     show CTPtr = "Ref*"
 
 data CInstr
@@ -123,9 +123,9 @@ instance Show CFunction where
 type CeliaTranslationUnit = Map String CFunction
 
 showTranslationUnit :: CeliaTranslationUnit -> String
-showTranslationUnit tu = "#include \"Lumina.h\"\n" ++ intercalate "\n" (Map.foldMapWithKey showDecl tu) ++ "\n" ++ intercalate "\n" (Map.foldMapWithKey showImpl tu)
+showTranslationUnit tu = "#include \"Lumina.h\"\n" ++ intercalate "\n" (Map.foldMapWithKey showDecl tu) ++ "\n\n" ++ intercalate "\n" (Map.foldMapWithKey showImpl tu)
     where 
-        showDecl _ b = [show (getDecl b)]
+        showDecl _ b = [show (getDecl b) ++ ";"]
         showImpl _ b = [show b]
 
 data CeliaBuilder a = CeliaBuilder (Map CLoc CType) (Map String CBlock) [CInstr] a

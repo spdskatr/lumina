@@ -14,9 +14,9 @@ import Lumina.Middleend.Astra.HoistFunctions (globaliseFunctions)
 import Lumina.Middleend.Mona.Mona (astraToMona)
 
 import qualified Data.Map.Strict as Map
-import Control.Monad (forM_)
+import Control.Monad (forM_, when)
 import Lumina.Interpreter.MonaInterpreter (getMonaValue)
-import Lumina.Middleend.Celia.Celia (monaToCelia)
+import Lumina.Middleend.Celia.Celia (showTranslationUnit, monaToCelia)
 
 -- WARNING - this may take several minutes to run
 genAndPrintLR1Parser :: IO ()
@@ -96,7 +96,8 @@ demoCelia = do
     let a = fst $ getAST pars inp
     let mtu = optMonaProgram (astraToMona a)
     let ctu = monaToCelia mtu
-    forM_ (Map.toList ctu) (putStrLn . show . snd)
+    when (Map.size ctu > 0) $
+        putStrLn $ showTranslationUnit ctu
 
 
 main :: IO ()

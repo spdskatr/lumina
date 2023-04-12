@@ -16,8 +16,10 @@ import Lumina.Middleend.Mona.Mona (astraToMona)
 import qualified Data.Map.Strict as Map
 import Control.Monad (forM_, when)
 import Lumina.Interpreter.MonaInterpreter (getMonaValue)
-import Lumina.Middleend.Celia.Celia (showTranslationUnit, monaToCelia)
+import Lumina.Middleend.Celia.Celia (monaToCelia)
 import System.Process.Extra (system)
+import System.Exit (ExitCode(..))
+import Lumina.Backend.CeliaToC (celiaToC)
 
 -- WARNING - this may take several minutes to run
 genAndPrintLR1Parser :: IO ()
@@ -98,7 +100,7 @@ demoCelia = do
     let mtu = optMonaProgram (astraToMona a)
     let ctu = monaToCelia mtu
     when (Map.size ctu > 0) $
-        putStrLn $ showTranslationUnit ctu
+        putStrLn $ celiaToC ctu
 
 demoCRuntime :: IO ()
 demoCRuntime = do
@@ -108,14 +110,18 @@ demoCRuntime = do
     let a = fst $ getAST pars inp
     let mtu = optMonaProgram (astraToMona a)
     let ctu = monaToCelia mtu
-    let code = showTranslationUnit ctu
+    let code = celiaToC ctu
     writeFile "runtime/test.c" code
     putStrLn "Written code to runtime/test.c"
-    ex <- system "clang -I runtime runtime/test.c -o runtime/test"
-    putStrLn ("Compilation finished with exit code " ++ show ex)
-    putStrLn "Running command ./runtime/test"
-    ex2 <- system "./runtime/test"
-    putStrLn ("Process finished with exit code " ++ show ex2)
+    verboseSystem "clang -I runtime runtime/test.c -o runtime/test"
+    verboseSystem "./runtime/test"
+    where
+        verboseSystem cmd = do
+            putStrLn ("$ " ++ cmd)
+            ex <- system cmd
+            when (ex /= ExitSuccess) $ fail ("Failed! Exit code: " ++ show ex)
+
+
 
 main :: IO ()
 main = do

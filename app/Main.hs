@@ -17,6 +17,7 @@ import qualified Data.Map.Strict as Map
 import Control.Monad (forM_, when)
 import Lumina.Interpreter.MonaInterpreter (getMonaValue)
 import Lumina.Middleend.Celia.Celia (showTranslationUnit, monaToCelia)
+import System.Process.Extra (system)
 
 -- WARNING - this may take several minutes to run
 genAndPrintLR1Parser :: IO ()
@@ -99,6 +100,22 @@ demoCelia = do
     when (Map.size ctu > 0) $
         putStrLn $ showTranslationUnit ctu
 
+demoCRuntime :: IO ()
+demoCRuntime = do
+    pars <- loadParserFrom "data/lr1.txt"
+    putStrLn "Enter Lumina code and I'll convert it to Celia, then C, then compile with the Celia runtime. Press CTRL-D when you're done."
+    inp <- getContents
+    let a = fst $ getAST pars inp
+    let mtu = optMonaProgram (astraToMona a)
+    let ctu = monaToCelia mtu
+    let code = showTranslationUnit ctu
+    writeFile "runtime/test.c" code
+    putStrLn "Written code to runtime/test.c"
+    ex <- system "clang -I runtime runtime/test.c -o runtime/test"
+    putStrLn ("Compilation finished with exit code " ++ show ex)
+    putStrLn "Running command ./runtime/test"
+    ex2 <- system "./runtime/test"
+    putStrLn ("Process finished with exit code " ++ show ex2)
 
 main :: IO ()
 main = do
@@ -111,7 +128,8 @@ main = do
     \ 6 - Demo Mona (Middleend IR - ANF)\n\
     \ 7 - Demo Mona optimiser\n\
     \ 8 - Demo Mona interpreter\n\
-    \ 9 - Demo Celia (Middleend IR - C--)"
+    \ 9 - Demo Celia (Middleend IR - C--)\n\
+    \ 10 - Compile to C and run"
     i <- readLn :: IO Int
     case i of
         1 -> genAndPrintLR1Parser
@@ -123,4 +141,5 @@ main = do
         7 -> demoOptMona
         8 -> demoMonaInterpreter
         9 -> demoCelia
+        10 -> demoCRuntime
         _ -> error $ "Unrecognised option " ++ show i

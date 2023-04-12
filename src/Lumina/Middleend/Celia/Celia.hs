@@ -123,7 +123,7 @@ instance Show CFunction where
 type CeliaTranslationUnit = Map String CFunction
 
 showTranslationUnit :: CeliaTranslationUnit -> String
-showTranslationUnit tu = "#include \"Lumina.h\"\n" ++ intercalate "\n" (Map.foldMapWithKey showDecl tu) ++ "\n\n" ++ intercalate "\n" (Map.foldMapWithKey showImpl tu)
+showTranslationUnit tu = "#include \"Lumina.h\"\n" ++ intercalate "\n" (Map.foldMapWithKey showDecl tu) ++ "\n\n" ++ intercalate "\n" (Map.foldMapWithKey showImpl tu) ++ "\n" ++ "ENTRY(f_0main)"
     where 
         showDecl _ b = [show (getDecl b) ++ ";"]
         showImpl _ b = [show b]

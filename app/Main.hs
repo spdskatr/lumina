@@ -20,6 +20,7 @@ import Lumina.Middleend.Celia.Celia (monaToCelia)
 import System.Process.Extra (system)
 import System.Exit (ExitCode(..))
 import Lumina.Backend.CeliaToC (celiaToC)
+import Lumina.Middleend.Typing (LuminaType(TInt))
 
 -- WARNING - this may take several minutes to run
 genAndPrintLR1Parser :: IO ()
@@ -107,13 +108,14 @@ demoCRuntime = do
     pars <- loadParserFrom "data/lr1.txt"
     putStrLn "Enter Lumina code and I'll convert it to Celia, then C, then compile with the Celia runtime. Press CTRL-D when you're done."
     inp <- getContents
-    let a = fst $ getAST pars inp
+    let (a,t) = getAST pars inp
+    when (t /= TInt) $ fail ("Resultant type of expression is not an integer; found " ++ show t ++ " instead. Only integers are supported.")
     let mtu = optMonaProgram (astraToMona a)
     let ctu = monaToCelia mtu
     let code = celiaToC ctu
     writeFile "runtime/test.c" code
     putStrLn "Written code to runtime/test.c"
-    verboseSystem "clang -I runtime runtime/test.c -o runtime/test"
+    verboseSystem "clang -I runtime runtime/test.c runtime/main.c -o runtime/test"
     verboseSystem "./runtime/test"
     where
         verboseSystem cmd = do

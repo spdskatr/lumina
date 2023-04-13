@@ -15,7 +15,7 @@ import Data.List (intercalate)
  -}
 
 celiaToC :: CeliaTranslationUnit -> String
-celiaToC tu = "#include \"Lumina.h\"\n" ++ intercalate "\n" (Map.foldMapWithKey showDecl tu) ++ "\n\n" ++ intercalate "\n" (Map.foldMapWithKey showImpl tu) ++ "\n" ++ "ENTRY(f_0main)"
+celiaToC tu = "#include \"Lumina.h\"\n" ++ intercalate "\n" (Map.foldMapWithKey showDecl tu) ++ "\n\n" ++ intercalate "\n" (Map.foldMapWithKey showImpl tu)
     where 
         showDecl _ b = [show (getDecl b) ++ ";"]
         showImpl _ b = [show b]

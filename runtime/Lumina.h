@@ -1,8 +1,4 @@
-#include <stdio.h>
 #include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
 
 #define XNOR ==
 #define BRANCH(c,th,el) if (c) { goto th; } { goto el; }
@@ -17,11 +13,6 @@
 // pointer.
 // A closure is implemented as a reference where the item at index 3 is a
 // function pointer.
-#define REFCOUNT(v) v[0]
-#define REFLENGTH(v) v[1]
-#define REFTAG(v) v[2]
-#define REFDATA(v) (v+3)
-#define REFALLOC(i) calloc(3+(i), sizeof(Ref))
 typedef uint64_t Ref;
 
 #define MKREF(v,f) mk_ref(f, (uint64_t)v)

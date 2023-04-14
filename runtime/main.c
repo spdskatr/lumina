@@ -1,4 +1,5 @@
 #include "Lumina.h"
+#include <stdio.h>
 
 int64_t f_0main(int64_t _0arg);
 

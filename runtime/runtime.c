@@ -1,5 +1,16 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
 #include "Lumina.h"
 
+#define REFCOUNT(v) v[0]
+#define REFLENGTH(v) v[1]
+#define REFTAG(v) v[2]
+#define REFDATA(v) (v+3)
+#define REFALLOC(i) calloc(3+(i), sizeof(Ref))
+
+// Can enable debug logging of the garbage collecor with -D_LUMINA_GC
 #ifdef _LUMINA_GC
 #define gclog(...) fprintf(stderr, __VA_ARGS__)
 #else

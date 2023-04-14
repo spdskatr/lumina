@@ -74,7 +74,7 @@ emitClosuredCFunctionDecl :: CFunctionDecl -> String
 emitClosuredCFunctionDecl (CFunctionDecl f t' _) = emitCType t' ++ " cl_" ++ showFuncName f ++ "(Ref* env, uint64_t arg)";
 
 emitClosuredCFunction :: CFunctionDecl -> String
-emitClosuredCFunction (CFunctionDecl f t' args) = emitClosuredCFunctionDecl (CFunctionDecl f t' args) ++ " {\n" ++ indent body ++ "}"
+emitClosuredCFunction (CFunctionDecl f t' args) = emitClosuredCFunctionDecl (CFunctionDecl f t' args) ++ " {\n" ++ indent body ++ "}\n"
     where
         body = "return " ++ showFuncName f ++ "(" ++ intercalate ", " unpackedArgs ++ ");"
         unpackedArgs = case args of

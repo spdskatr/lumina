@@ -17,21 +17,27 @@
 // pointer.
 // A closure is implemented as a reference where the item at index 3 is a
 // function pointer.
+#define REFCOUNT(v) v[0]
+#define REFLENGTH(v) v[1]
+#define REFTAG(v) v[2]
+#define REFDATA(v) (v+3)
+#define REFALLOC(i) calloc(3+(i), sizeof(Ref))
 typedef uint64_t Ref;
 
 #define MKREF(v,f) mk_ref(f, (uint64_t)v)
 #define DEREF(v,t) ((t)deref(v))
 #define SET(u,v) set_ref(u, (uint64_t)v)
-#define MKCL(x,len,tag,...) { uint64_t data[] = { __VA_ARGS__ }; x = alloc_closure(len,tag); memcpy(x+3, data, len * sizeof(uint64_t)); init_closure(x); }
+#define MKCL(x,len,tag,...) { uint64_t data[] = { __VA_ARGS__ }; x = mk_closure(len, tag, data); }
 #define CALLCL(t,cl,v) ((t (*)(Ref *, uint64_t))cl[3])(cl+4,v)
 #define INCREF(v) inc_ref(v)
 #define DECREF(v) dec_ref(v)
 
-Ref *alloc_closure(uint64_t len, uint64_t tag);
+Ref *mk_closure(uint64_t len, uint64_t tag, uint64_t *data);
 Ref *mk_ref(int is_ref, uint64_t value);
 uint64_t deref(Ref *v);
 void set_ref(Ref *r, uint64_t new_v);
 
+// Reference counting garbage collection utilities
 void init_closure(Ref *r);
 void inc_ref(Ref *r);
 void dec_ref(Ref *r);

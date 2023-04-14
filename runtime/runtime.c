@@ -6,75 +6,78 @@
 #define gclog(...)
 #endif
 
-Ref *alloc_closure(uint64_t len, uint64_t tag) {
-    Ref *r = calloc(3 + len, sizeof(Ref));
+Ref *mk_closure(uint64_t len, uint64_t tag, uint64_t *data) {
+    Ref *r = REFALLOC(len);
     gclog("Created closure %p\n", r);
-    r[0] = 1;
-    r[1] = len;
-    r[2] = tag;
+    REFCOUNT(r) = 1;
+    REFLENGTH(r) = len;
+    REFTAG(r) = tag;
+    memcpy(REFDATA(r), data, len * sizeof(uint64_t));
+    // Initialise reference counts
+    init_closure(r);
     return r;
 }
 
 Ref *mk_ref(int is_ref, uint64_t value) {
-    Ref *r = calloc(4, sizeof(Ref));
+    Ref *r = REFALLOC(1);
     gclog("Created reference %p\n", r);
-    r[0] = 1;
-    r[1] = 1;
+    REFCOUNT(r) = 1;
+    REFLENGTH(r) = 1;
     if (is_ref) {
-        r[2] = 1;
+        REFTAG(r) = 1;
         // Increment reference count of value since it's about to get stored
         inc_ref((Ref *)value);
     }
-    r[3] = value;
+    REFDATA(r)[0] = value;
     return r;
 }
 
-uint64_t deref(Ref *ref) {
-    if (ref[2] & 1) {
+uint64_t deref(Ref *r) {
+    if (REFTAG(r) & 1) {
         // Increment reference count of value since it's about to get returned
-        inc_ref((Ref *)ref[3]);
+        inc_ref((Ref *)REFDATA(r)[0]);
     }
-    return ref[3];
+    return REFDATA(r)[0];
 }
 
-void set_ref(Ref *ref, uint64_t value) {
-    if (ref[2] & 1) {
+void set_ref(Ref *r, uint64_t value) {
+    if (REFTAG(r) & 1) {
         // Decrement reference count for previous reference
-        dec_ref((Ref *)ref[3]);
+        dec_ref((Ref *)REFDATA(r)[0]);
         // And increment reference count for new reference
         inc_ref((Ref *)value);
     }
-    ref[3] = value;
+    REFDATA(r)[0] = value;
 }
 
-void init_closure(Ref *ref) {
+void init_closure(Ref *r) {
     // Increment the references of the pointers as needed
-    uint64_t flags = ref[2];
+    uint64_t flags = REFTAG(r);
     while (flags) {
         int pos = ffsl(flags) - 1;
-        inc_ref((Ref *)ref[3+pos]);
+        inc_ref((Ref *)REFDATA(r)[pos]);
         flags ^= (1<<pos);
     }
 }
 
-void inc_ref(Ref *ref) {
-    ref[0]++;
-    gclog("Reference at %p now %ld\n", ref, ref[0]);
+void inc_ref(Ref *r) {
+    REFCOUNT(r)++;
+    gclog("Reference at %p now %ld\n", r, REFCOUNT(r));
 }
 
-void dec_ref(Ref *ref) {
-    ref[0]--;
-    gclog("Reference at %p now %ld\n", ref, ref[0]);
-    if (ref[0] == 0) {
-        gclog("Deallocating %p\n", ref);
+void dec_ref(Ref *r) {
+    REFCOUNT(r)--;
+    gclog("Reference at %p now %ld\n", r, REFCOUNT(r));
+    if (REFCOUNT(r) == 0) {
+        gclog("Deallocating %p\n", r);
         // Recursively decrement reference counts for child references
-        uint64_t flags = ref[2];
+        uint64_t flags = REFTAG(r);
         while (flags) {
             int pos = ffsl(flags) - 1;
-            dec_ref((Ref *)ref[3+pos]);
+            dec_ref((Ref *)REFDATA(r)[pos]);
             flags ^= (1<<pos);
         }
         // Deallocate
-        free(ref);
+        free(r);
     }
 }

@@ -15,11 +15,10 @@ import Lumina.Middleend.Astra.Astra (BinaryOp, UnaryOp (..))
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Lumina.Middleend.Mona.Mona (MonaFunction (..), MExpr (..), MAtom (..), MOper (..), MonaTranslationUnit)
-import Lumina.Utils (internalError, indent)
+import Lumina.Utils (internalError)
 import Lumina.Middleend.Typing (LuminaType (..))
 import Control.Monad (forM_)
 import Lumina.Middleend.Astra.HoistFunctions (TypedVar(..))
-import Data.List (intercalate)
 
 {-
  - Celia is an Cmm-like IR. That is, the code should be trivially translatable
@@ -43,23 +42,14 @@ data CVal
     | CBool Bool
     | CInt Int
 
-instance Show CVal where
-    show (CVar l) = show l
-    show (CBool False) = "false"
-    show (CBool True) = "true"
-    show (CInt i) = show i
-
 data CType = CTBool | CTInt | CTPtr
-
-instance Show CType where
-    show CTBool = "bool"
-    show CTInt = "long long"
-    show CTPtr = "Ref*"
 
 data CInstr
     = CLoad CLoc CVal
     | CBinaryOp BinaryOp CLoc CVal CVal
-    | CUnaryOp UnaryOp CLoc CVal
+    | CNot CLoc CVal
+    | CDeRef CLoc CVal CType
+    | CMkRef CLoc CVal CType
     | CCall CLoc String [CVal] CVal
     | CCallCl CLoc CLoc CVal
     | CMkCl CLoc String [CVal]
@@ -67,57 +57,21 @@ data CInstr
     | CIncRef CLoc
     | CDecRef CLoc
 
-showUnaryOpInC :: UnaryOp -> CVal -> String
-showUnaryOpInC OpNot cv = "!" ++ show cv
-showUnaryOpInC OpRef cv = "MKREF(" ++ show cv ++ ")"
-showUnaryOpInC OpBang cv = "DEREF(" ++ show cv ++ ")"
-
-showFuncName :: String -> String
-showFuncName s = "f_" ++ s
-
-instance Show CInstr where
-    show (CLoad cl cv) = show cl ++ " = " ++ show cv
-    show (CBinaryOp bo cl cv cv') = show cl ++ " = " ++ show cv ++ " " ++ show bo ++ " " ++ show cv' ++ ";"
-    show (CUnaryOp uo cl cv) = show cl ++ " = " ++ showUnaryOpInC uo cv ++ ";"
-    show (CCall cl f vs v) = show cl ++ " = " ++ showFuncName f ++ "(" ++ intercalate ", " (map show (v:vs)) ++ ");"
-    show (CCallCl cl cl' v) = show cl ++ " = CALLCL(" ++ show cl' ++ ", " ++ show v ++ ");"
-    show (CMkCl cl f vs) = show cl ++ " = MKCL(" ++ intercalate ", " (showFuncName f : map show vs) ++ ");"
-    show (CSet cl cv) = "SET(" ++ show cl ++ ", " ++ show cv ++ ");"
-    show (CIncRef cl) = "INCREF(" ++ show cl ++ ");"
-    show (CDecRef cl) = "DECREF(" ++ show cl ++ ");"
 
 data CBlockEnd
     = CGoto String
     | CBranch CLoc String String
     | CReturn CVal
 
-instance Show CBlockEnd where
-    show (CGoto s) = "goto " ++ s ++ ";"
-    show (CBranch cl th el) = "BRANCH(" ++ show cl ++ ", " ++ th ++ ", " ++ el ++ ");"
-    show (CReturn v) = "return " ++ show v ++ ";"
-
 data CBlock = CBlock [CInstr] CBlockEnd
-instance Show CBlock where
-    show (CBlock is en) = intercalate "\n" (map show is ++ [show en])
 
 -- First element of args is the actual argument, following args are the env
 data CFunctionDecl = CFunctionDecl { getCName :: String, getReturnType :: CType, getCArgs :: [(CLoc, CType)] }
-
-instance Show CFunctionDecl where
-    show (CFunctionDecl f t' args) = show t' ++ " " ++ showFuncName f ++ " (" ++ intercalate ", " (map showArg args) ++ ")"
-        where showArg (x, t) = show t ++ " " ++ show x
 
 data CFunction = CFunction 
     { getDecl :: CFunctionDecl
     , getLocals :: Map CLoc CType
     , getBlocks :: Map String CBlock }
-
-instance Show CFunction where
-    show (CFunction decl locs bls) = show decl ++ " {\n" ++ body ++ "}\n"
-        where
-            body = indent (intercalate "\n" (Map.foldMapWithKey showLoc locs)) ++ "\n" ++ intercalate "\n" (Map.foldMapWithKey showBlock bls)
-            showLoc loc t = [show t ++ " " ++ show loc ++ ";"]
-            showBlock name bl = [name ++ ":\n" ++ indent (show bl)]
 
 type CeliaTranslationUnit = Map String CFunction
 
@@ -164,7 +118,9 @@ exprToCelia :: Map String CFunctionDecl -> [CLoc] -> String -> MExpr -> CeliaBui
 exprToCelia ds rs name (MLet x t o rest) = do
     newLocal (CLoc x) (getCType t)
     let instr = case o of
-            MUnary uo ma -> CUnaryOp uo (CLoc x) (getCVal ma)
+            MUnary OpNot ma -> CNot (CLoc x) (getCVal ma)
+            MUnary OpBang ma -> CDeRef (CLoc x) (getCVal ma) (getCType t)
+            MUnary OpRef ma -> CMkRef (CLoc x) (getCVal ma) (getCType t)
             MBinary bo ma ma' -> CBinaryOp bo (CLoc x) (getCVal ma) (getCVal ma')
             MApp ma ma' -> case ma of
                 MVar c -> CCallCl (CLoc x) (CLoc c) (getCVal ma')
@@ -176,8 +132,7 @@ exprToCelia ds rs name (MLet x t o rest) = do
     exprToCelia ds rs name rest
 exprToCelia ds rs name (MAssign a b rest) = do
     case a of
-        MVar a' -> do
-            emitCInstr $ CSet (CLoc a') (getCVal b)
+        MVar a' -> emitCInstr $ CSet (CLoc a') (getCVal b)
         _ -> celiaError ("Found an assignment expression to an item that isn't a variable; found " ++ show a)
     exprToCelia ds rs name rest
 exprToCelia ds rs name (MIf a th el) = do

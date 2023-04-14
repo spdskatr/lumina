@@ -115,7 +115,7 @@ demoCRuntime = do
     let code = celiaToC ctu
     writeFile "runtime/test.c" code
     putStrLn "Written code to runtime/test.c"
-    verboseSystem "clang -I runtime runtime/test.c runtime/main.c -o runtime/test"
+    verboseSystem "clang -I runtime runtime/test.c runtime/main.c runtime/runtime.c -o runtime/test"
     verboseSystem "./runtime/test"
     where
         verboseSystem cmd = do

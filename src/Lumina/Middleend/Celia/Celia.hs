@@ -1,4 +1,5 @@
 module Lumina.Middleend.Celia.Celia (
+    CLoc (..),
     CVal (..),
     CInstr (..),
     CType (..),
@@ -42,7 +43,7 @@ data CVal
     | CBool Bool
     | CInt Int
 
-data CType = CTBool | CTInt | CTPtr
+data CType = CTBool | CTInt | CTPtr deriving Eq
 
 data CInstr
     = CLoad CLoc CVal
@@ -51,8 +52,8 @@ data CInstr
     | CDeRef CLoc CVal CType
     | CMkRef CLoc CVal CType
     | CCall CLoc String [CVal] CVal
-    | CCallCl CLoc CLoc CVal
-    | CMkCl CLoc String [CVal]
+    | CCallCl CType CLoc CLoc CVal
+    | CMkCl CLoc String [(CVal, CType)]
     | CSet CLoc CVal
     | CIncRef CLoc
     | CDecRef CLoc
@@ -68,7 +69,7 @@ data CBlock = CBlock [CInstr] CBlockEnd
 -- First element of args is the actual argument, following args are the env
 data CFunctionDecl = CFunctionDecl { getCName :: String, getReturnType :: CType, getCArgs :: [(CLoc, CType)] }
 
-data CFunction = CFunction 
+data CFunction = CFunction
     { getDecl :: CFunctionDecl
     , getLocals :: Map CLoc CType
     , getBlocks :: Map String CBlock }
@@ -116,22 +117,26 @@ getCVal (MInt i) = CInt i
 
 exprToCelia :: Map String CFunctionDecl -> [CLoc] -> String -> MExpr -> CeliaBuilder CBlockEnd
 exprToCelia ds rs name (MLet x t o rest) = do
-    newLocal (CLoc x) (getCType t)
+    let varType = getCType t
+    newLocal (CLoc x) varType
     let instr = case o of
             MUnary OpNot ma -> CNot (CLoc x) (getCVal ma)
-            MUnary OpBang ma -> CDeRef (CLoc x) (getCVal ma) (getCType t)
-            MUnary OpRef ma -> case t of 
+            MUnary OpBang ma -> CDeRef (CLoc x) (getCVal ma) varType
+            MUnary OpRef ma -> case t of
                 TRef t' -> CMkRef (CLoc x) (getCVal ma) (getCType t')
                 _ -> celiaError ("Found assignment expression to value of non-reference type (this should be impossible): " ++ show t)
             MBinary bo ma ma' -> CBinaryOp bo (CLoc x) (getCVal ma) (getCVal ma')
             MApp ma ma' -> case ma of
-                MVar c -> CCallCl (CLoc x) (CLoc c) (getCVal ma')
+                MVar c -> CCallCl varType (CLoc x) (CLoc c) (getCVal ma')
                 _ -> celiaError ("Tried to call a function that is definitely not a function; found " ++ show ma)
             MCall f vs ma -> CCall (CLoc x) f (getCVal <$> vs) (getCVal ma)
-            MMkClosure s as -> CMkCl (CLoc x) s (getCVal <$> as)
+            MMkClosure f as -> case ds Map.!? f of
+                Just (CFunctionDecl _ _ args) -> CMkCl (CLoc x) f (zip (getCVal <$> as) (map snd (tail args)))
+                Nothing -> celiaError ("Could not find function " ++ f)
             MJust a -> CLoad (CLoc x) (getCVal a)
+    let newRs = if varType == CTPtr then CLoc x : rs else rs
     emitCInstr instr
-    exprToCelia ds rs name rest
+    exprToCelia ds newRs name rest
 exprToCelia ds rs name (MAssign a b rest) = do
     case a of
         MVar a' -> emitCInstr $ CSet (CLoc a') (getCVal b)
@@ -145,7 +150,7 @@ exprToCelia ds rs name (MIf a th el) = do
     newBlock thenName thenBlock
     newBlock elseName elseBlock
     case a of
-        MVar x -> 
+        MVar x ->
             return $ CBranch (CLoc x) thenName elseName
         _ -> celiaError ("Found if-statement on a non-variable " ++ show a ++ ". Did we forget to optimise the code before translating it?")
 exprToCelia _ rs _ (MReturn a) = do
@@ -159,7 +164,7 @@ toCDecl :: MonaFunction -> CFunctionDecl
 toCDecl mf = CFunctionDecl (getName mf) (getCType $ getResultType mf) ((CLoc (getArg mf), getCType (getArgType mf)) : [(CLoc x, getCType t) | (TypedVar x t) <- getFV mf])
 
 toCFunction :: Map String CFunctionDecl -> MonaFunction -> CFunction
-toCFunction ds mf = 
+toCFunction ds mf =
     let (MonaFunction name _ _ _ _ b) = mf
         decl = ds Map.! name
         entryname = "l_" ++ name ++ "_entry"
@@ -168,6 +173,6 @@ toCFunction ds mf =
     in CFunction decl ls allBlocks
 
 monaToCelia :: MonaTranslationUnit -> CeliaTranslationUnit
-monaToCelia fs = 
+monaToCelia fs =
     let decls = Map.map toCDecl fs
     in Map.map (toCFunction decls) fs

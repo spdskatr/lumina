@@ -113,10 +113,10 @@ demoCRuntime = do
     let mtu = optMonaProgram (astraToMona a)
     let ctu = monaToCelia mtu
     let code = celiaToC ctu
-    writeFile "runtime/test.c" code
-    putStrLn "Written code to runtime/test.c"
-    verboseSystem "clang -I runtime runtime/test.c runtime/main.c runtime/runtime.c -o runtime/test"
-    verboseSystem "./runtime/test"
+    writeFile "runtime/program.c" code
+    putStrLn "Written code to runtime/program.c"
+    verboseSystem "clang -I runtime runtime/program.c runtime/main.c runtime/runtime.c -O2 -o runtime/program"
+    verboseSystem "./runtime/program"
     where
         verboseSystem cmd = do
             putStrLn ("$ " ++ cmd)

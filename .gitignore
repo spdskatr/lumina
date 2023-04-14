@@ -1,5 +1,5 @@
 dist-newstyle/
 .stack-work/
 *~
-runtime/test
-runtime/test.c
+runtime/program
+runtime/program.c

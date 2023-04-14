@@ -130,3 +130,9 @@ with fun f (x : int) : int =
 do
     f 4
 end
+
+with a : int# = #0 do
+    while !a < 2 do
+        a := !a + 1
+    end;!a
+end

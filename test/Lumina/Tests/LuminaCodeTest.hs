@@ -24,7 +24,7 @@ testCases :: [TestCase]
 testCases = [
     ("arith"
     ,"2 + 3 * (5 - 6)"
-    ,(-1)),
+    ,-1),
     ("lambda"
     ,"fun (x : int) : int -> x + 3 end 3",
     6),
@@ -85,7 +85,7 @@ equalValues (VInt a) (VInt b) = a == b
 equalValues _ _ = False
 
 testTyping :: String -> (String -> AST) -> TestCase -> Either String ()
-testTyping codename e (name, code, _) = 
+testTyping codename e (name, code, _) =
     let a = e code
     in case testWellTyped a of
       Left err -> Left $ "test testTyping_" ++ codename ++ "_" ++ name ++ " failed: " ++ err
@@ -126,5 +126,5 @@ runCodeTest = do
     case allTests lr of
         Left err -> error err
         Right _ -> return ()
-    forM_ testCases $ testCProgram "celiaToCBackend" (fst . getAST lr) 
+    forM_ testCases $ testCProgram "celiaToCBackend" (fst . getAST lr)
     putStrLn "Lumina.Tests.LuminaCodeTest PASS"

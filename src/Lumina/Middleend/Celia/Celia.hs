@@ -120,7 +120,9 @@ exprToCelia ds rs name (MLet x t o rest) = do
     let instr = case o of
             MUnary OpNot ma -> CNot (CLoc x) (getCVal ma)
             MUnary OpBang ma -> CDeRef (CLoc x) (getCVal ma) (getCType t)
-            MUnary OpRef ma -> CMkRef (CLoc x) (getCVal ma) (getCType t)
+            MUnary OpRef ma -> case t of 
+                TRef t' -> CMkRef (CLoc x) (getCVal ma) (getCType t')
+                _ -> celiaError ("Found assignment expression to value of non-reference type (this should be impossible): " ++ show t)
             MBinary bo ma ma' -> CBinaryOp bo (CLoc x) (getCVal ma) (getCVal ma')
             MApp ma ma' -> case ma of
                 MVar c -> CCallCl (CLoc x) (CLoc c) (getCVal ma')

@@ -21,10 +21,10 @@
 #ifdef _LUMINA_TRACKREF
 int refcount = 0;
 #define REFALLOC(i) (refcount++,calloc(3+(i), sizeof(Ref)))
-#define REFFREE(r) refcount--,free(r);
+#define REFFREE(r) (refcount--,free(r))
 #else
 #define REFALLOC(i) calloc(3+(i), sizeof(Ref))
-#define REFFREE(r) free(r);
+#define REFFREE(r) free(r)
 #endif
 
 Ref *mk_closure(uint64_t len, uint64_t tag, uint64_t *data) {

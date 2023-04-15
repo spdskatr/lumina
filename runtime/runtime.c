@@ -53,10 +53,10 @@ uint64_t deref(Ref *r) {
 
 void set_ref(Ref *r, uint64_t value) {
     if (REFTAG(r) & 1) {
+        // Increment reference count for new reference
+        inc_ref((Ref *)value);
         // Decrement reference count for previous reference
         dec_ref((Ref *)REFDATA(r)[0]);
-        // And increment reference count for new reference
-        inc_ref((Ref *)value);
     }
     REFDATA(r)[0] = value;
 }

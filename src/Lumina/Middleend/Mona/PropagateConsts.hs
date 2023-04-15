@@ -6,7 +6,7 @@ import Lumina.Utils (orElse)
 import Lumina.Middleend.Typing (LuminaType(..))
 
 type RenameEnv = Map String MAtom
-type ClosurePropEnv = Map String (String, [MAtom])
+type ClosurePropEnv = Map String (String, [(String, MAtom)])
 
 propagateConsts :: MExpr -> MExpr
 propagateConsts = propagateConstsImpl Map.empty Map.empty
@@ -22,7 +22,7 @@ propagateConstsImpl cenv env ex = case ex of
                 -- Expression will get removed in dead code elimination
                 MLet s t mv (propagateConstsImpl cenv (Map.insert s (process ma) env) me)
             MMkClosure c vs ->
-                MLet s t (MMkClosure c [process ma | ma <- vs]) (propagateConstsImpl (Map.insert s (c, vs) cenv) env me)
+                MLet s t (MMkClosure c [(x, process ma) | (x, ma) <- vs]) (propagateConstsImpl (Map.insert s (c, vs) cenv) env me)
             MUnary uo ma ->
                 subMV (MUnary uo (process ma))
             MBinary bo ma ma' ->
@@ -31,7 +31,7 @@ propagateConstsImpl cenv env ex = case ex of
                 Right (c,vs) -> subMV (MCall c vs (process ma'))
                 Left cl -> subMV (MApp cl (process ma'))
             MCall f vs ma ->
-                subMV (MCall f [process a | a <- vs] (process ma))
+                subMV (MCall f [(x, process a) | (x, a) <- vs] (process ma))
     MIf ma me me' ->
         MIf (process ma) (recurse me) (recurse me')
     MReturn ma -> MReturn (process ma)

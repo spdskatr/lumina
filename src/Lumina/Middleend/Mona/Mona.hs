@@ -55,11 +55,11 @@ instance Show MAtom where
 
 data MOper
     = MJust MAtom
-    | MMkClosure String [MAtom]
+    | MMkClosure String [(String, MAtom)]
     | MUnary UnaryOp MAtom
     | MBinary BinaryOp MAtom MAtom
     | MApp MAtom MAtom
-    | MCall String [MAtom] MAtom
+    | MCall String [(String, MAtom)] MAtom
     deriving Eq
 
 instance Show MOper where
@@ -105,7 +105,7 @@ toMona fs ast k = case ast of
     AVar _ TUnit -> k MUnit
     AVar s t -> 
         case fs Map.!? s of
-            Just (vs, _) -> newLet (MMkClosure s [MVar x | (TypedVar x _) <- vs]) t
+            Just (vs, _) -> newLet (MMkClosure s [(x, MVar x) | (TypedVar x _) <- vs]) t
             Nothing -> k (MVar s)
     AApp a1 a2 t -> toMona fs a1 (\a1' -> toMona fs a2 (\a2' -> newLet (MApp a1' a2') t))
     AUnaryOp uo a t -> toMona fs a $ \a' ->

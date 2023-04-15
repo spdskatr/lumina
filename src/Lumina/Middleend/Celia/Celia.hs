@@ -129,14 +129,18 @@ exprToCelia ds rs name (MLet x t o rest) = do
             MApp ma ma' -> case ma of
                 MVar c -> CCallCl varType (CLoc x) (CLoc c) (getCVal ma')
                 _ -> celiaError ("Tried to call a function that is definitely not a function; found " ++ show ma)
-            MCall f vs ma -> CCall (CLoc x) f (getCVal <$> vs) (getCVal ma)
+            MCall f vs ma -> case ds Map.!? f of
+                Just (CFunctionDecl _ _ args) -> CCall (CLoc x) f (getRelevantArgs vs args) (getCVal ma)
+                Nothing -> celiaError ("Could not find function " ++ f)
             MMkClosure f as -> case ds Map.!? f of
-                Just (CFunctionDecl _ _ args) -> CMkCl (CLoc x) f (zip (getCVal <$> as) (map snd (tail args)))
+                Just (CFunctionDecl _ _ args) -> CMkCl (CLoc x) f (zip (getRelevantArgs as args) (map snd (tail args)))
                 Nothing -> celiaError ("Could not find function " ++ f)
             MJust a -> CLoad (CLoc x) (getCVal a)
     let newRs = if varType == CTPtr then CLoc x : rs else rs
     emitCInstr instr
     exprToCelia ds newRs name rest
+    where
+        getRelevantArgs vs args = [getCVal v | (s,v) <- vs, CLoc s `elem` map fst args]
 exprToCelia ds rs name (MAssign a b rest) = do
     case a of
         MVar a' -> emitCInstr $ CSet (CLoc a') (getCVal b)

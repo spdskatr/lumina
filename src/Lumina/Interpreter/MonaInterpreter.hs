@@ -8,7 +8,7 @@ import Lumina.Interpreter.AstraInterpreter (Value (..), Env, Store, applyUnaryOp
 import Control.Monad.Trans.State.Strict (State, evalState, get, put)
 import Lumina.Middleend.Astra.HoistFunctions (TypedVar(TypedVar))
 
-type ClosureEnv = Map String ([Value] -> Value -> State Store Value)
+type ClosureEnv = Map String (Map String Value -> Value -> State Store Value)
 
 getAtomValue :: Env -> MAtom -> Value
 getAtomValue _ MUnit = VUnit
@@ -23,12 +23,12 @@ getOperValue _ env (MApp a b) = case getAtomValue env a of
     v -> internalError ("Left side of application is not a function, found " ++ show v ++ " instead")
 getOperValue cenv env (MCall f vs arg) = do
     let cl = cenv Map.!? f `orElse` internalError ("function " ++ show f ++ " not found")
-    cl [getAtomValue env a | a <- vs] (getAtomValue env arg)
+    cl (Map.fromList [(s, getAtomValue env a) | (s,a) <- vs]) (getAtomValue env arg)
 getOperValue _ env (MUnary uo a) = applyUnaryOp uo (getAtomValue env a)
 getOperValue _ env (MBinary bo a b) = applyBinaryOp bo (getAtomValue env a) (getAtomValue env b)
 getOperValue cenv env (MMkClosure c as) = do
     let cl = cenv Map.!? c `orElse` internalError ("function " ++ show c ++ " not found")
-    return $ VFun $ cl [getAtomValue env a | a <- as]
+    return $ VFun $ cl (Map.fromList [(s, getAtomValue env a) | (s,a) <- as])
 
 interpretMona :: ClosureEnv -> Env -> MExpr -> State Store Value
 interpretMona cenv env (MLet x _ o rest) = do
@@ -53,7 +53,8 @@ interpretMona cenv env (MIf a th el) = do
 
 makeEnv :: MonaTranslationUnit -> ClosureEnv
 makeEnv fs = Map.map (\(MonaFunction _ fv x _ _ e) args v -> 
-    let boundMap = Map.fromList $ zipWith (\(TypedVar k _) arg -> (k, arg)) fv args
+    let boundMap = Map.fromList $ [ (k, args Map.!? k `orElse` unboundVar k) | (TypedVar k _) <- fv]
+        unboundVar k = internalError ("Variable " ++ k ++ " not found in environment")
     in interpretMona (makeEnv fs) (Map.insert x v boundMap) e) fs
 
 getMonaValue :: MonaTranslationUnit -> Value

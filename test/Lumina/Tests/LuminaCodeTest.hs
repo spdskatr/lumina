@@ -73,6 +73,9 @@ testCases = [
     ("shortCircuit"
     ,"with a : int# = #0 do true || (a := !a + 1; true); false && (a := !a + 1; false); !a end"
     ,0),
+    ("deadCode"
+    ,"with fun f (x : int) : int = with a : unit = () do (fun (y : int) : int -> with y case | 0 -> 5 | _ -> f (y * 0) end end) x end do f 4 end"
+    ,5),
     ("fibCPS"
     ,"with fun fibcps (x : int) : ((int -> int) -> int) = fun (k : (int -> int)) : int -> with x case | 0 -> k 1 | 1 -> k 1 | _ -> fibcps (x-1) (fun (r : int) : int -> fibcps (x-2) (fun (s : int) : int -> k (r+s) end) end) end end do fibcps 5 (fun (x:int) : int -> x end) end"
     ,8)

@@ -32,3 +32,7 @@ void set_ref(Ref *r, uint64_t new_v);
 void init_closure(Ref *r);
 void inc_ref(Ref *r);
 void dec_ref(Ref *r);
+
+// Exit hook for the runtime if it needs to do anything before exit (e.g.
+// profiling)
+void pre_exit();

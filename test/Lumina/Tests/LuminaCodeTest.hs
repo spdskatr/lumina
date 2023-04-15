@@ -104,7 +104,7 @@ testCProgram codename e (name, code, val) = do
     let ccode = celiaToC $ astraToCelia $ e code
     writeFile "runtime/program.c" ccode
     putStrLn ("Running test " ++ codename ++ "_" ++ name)
-    ensureSystem "clang -I runtime runtime/program.c runtime/main.c runtime/runtime.c -fsanitize=address -fsanitize=undefined -o runtime/program"
+    ensureSystem "clang -I runtime runtime/program.c runtime/main.c runtime/runtime.c -fsanitize=address -fsanitize=undefined -D_LUMINA_TRACKREF -o runtime/program"
     res <- readProcess "./runtime/program" [] ""
     when (readMaybe res /= Just val) $ fail ("test " ++ codename ++ "_" ++ name ++ " failed; Expected " ++ show val ++ ", got " ++ res)
     where

@@ -8,13 +8,23 @@
 #define REFLENGTH(v) v[1]
 #define REFTAG(v) v[2]
 #define REFDATA(v) (v+3)
-#define REFALLOC(i) calloc(3+(i), sizeof(Ref))
 
 // Can enable debug logging of the garbage collecor with -D_LUMINA_GC
 #ifdef _LUMINA_GC
 #define gclog(...) fprintf(stderr, __VA_ARGS__)
 #else
 #define gclog(...)
+#endif
+
+// Can track the number of allocated references (and crash if there are
+// allocated references at exit) with -D_LUMINA_TRACKREF
+#ifdef _LUMINA_TRACKREF
+int refcount = 0;
+#define REFALLOC(i) (refcount++,calloc(3+(i), sizeof(Ref)))
+#define REFFREE(r) refcount--,free(r);
+#else
+#define REFALLOC(i) calloc(3+(i), sizeof(Ref))
+#define REFFREE(r) free(r);
 #endif
 
 Ref *mk_closure(uint64_t len, uint64_t tag, uint64_t *data) {
@@ -89,6 +99,15 @@ void dec_ref(Ref *r) {
             flags ^= (1<<pos);
         }
         // Deallocate
-        free(r);
+        REFFREE(r);
     }
+}
+
+void pre_exit() {
+#ifdef _LUMINA_TRACKREF
+    if (refcount != 0) {
+        fprintf(stderr, "Number of active references at program exit was nonzero (%d). Did we memory leak?\n", refcount);
+        exit(1);
+    }
+#endif
 }

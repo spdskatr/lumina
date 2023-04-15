@@ -15,11 +15,16 @@
 // function pointer.
 typedef uint64_t Ref;
 
+#define REFCOUNT(v) v[0]
+#define REFLENGTH(v) v[1]
+#define REFTAG(v) v[2]
+#define REFDATA(v) (v+3)
+
 #define MKREF(v,f) mk_ref(f, (uint64_t)v)
 #define DEREF(v,t) ((t)deref(v))
 #define SET(u,v) set_ref(u, (uint64_t)v)
 #define MKCL(x,len,tag,...) { uint64_t data[] = { __VA_ARGS__ }; x = mk_closure(len, tag, data); }
-#define CALLCL(t,cl,v) ((t (*)(Ref *, uint64_t))cl[3])(cl+4,v)
+#define CALLCL(t,cl,v) ((t (*)(Ref *, uint64_t))REFDATA(cl)[0])(REFDATA(cl)+1,v)
 #define INCREF(v) inc_ref(v)
 #define DECREF(v) dec_ref(v)
 
@@ -29,7 +34,6 @@ uint64_t deref(Ref *v);
 void set_ref(Ref *r, uint64_t new_v);
 
 // Reference counting garbage collection utilities
-void init_closure(Ref *r);
 void inc_ref(Ref *r);
 void dec_ref(Ref *r);
 

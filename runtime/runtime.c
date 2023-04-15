@@ -4,11 +4,6 @@
 #include <strings.h>
 #include "Lumina.h"
 
-#define REFCOUNT(v) v[0]
-#define REFLENGTH(v) v[1]
-#define REFTAG(v) v[2]
-#define REFDATA(v) (v+3)
-
 // Can enable debug logging of the garbage collecor with -D_LUMINA_GC
 #ifdef _LUMINA_GC
 #define gclog(...) fprintf(stderr, __VA_ARGS__)
@@ -26,6 +21,8 @@ int refcount = 0;
 #define REFALLOC(i) calloc(3+(i), sizeof(Ref))
 #define REFFREE(r) free(r)
 #endif
+
+void init_closure(Ref *r);
 
 Ref *mk_closure(uint64_t len, uint64_t tag, uint64_t *data) {
     Ref *r = REFALLOC(len);

@@ -15,7 +15,7 @@ import Lumina.Backend.CeliaToC (celiaToC)
 
 import Control.Monad (forM_, when)
 import Text.Read (readMaybe)
-import System.Process.Extra (readProcess, system)
+import System.Process.Extra (system, readProcessWithExitCode)
 import System.Exit (ExitCode(..))
 
 type TestCase = (String, String, Int)
@@ -105,7 +105,9 @@ testCProgram codename e (name, code, val) = do
     writeFile "runtime/program.c" ccode
     putStrLn ("Running test " ++ codename ++ "_" ++ name)
     ensureSystem "clang -I runtime runtime/program.c runtime/main.c runtime/runtime.c -fsanitize=address -fsanitize=undefined -D_LUMINA_TRACKREF -o runtime/program"
-    res <- readProcess "./runtime/program" [] ""
+    (ex, res, cerr) <- readProcessWithExitCode "./runtime/program" [] ""
+    putStr cerr
+    when (ex /= ExitSuccess) $ fail ("Execution failed! Exit code: " ++ show ex)
     when (readMaybe res /= Just val) $ fail ("test " ++ codename ++ "_" ++ name ++ " failed; Expected " ++ show val ++ ", got " ++ res)
     where
         ensureSystem cmd = do

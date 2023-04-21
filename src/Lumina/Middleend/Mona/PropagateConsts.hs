@@ -13,10 +13,9 @@ propagateConsts = propagateConstsImpl Map.empty Map.empty
 
 propagateConstsImpl :: ClosurePropEnv -> RenameEnv -> MExpr -> MExpr
 propagateConstsImpl cenv env ex = case ex of
-    MLet s TUnit mv me ->
-        MLet s TUnit mv (propagateConstsImpl cenv (Map.insert s MUnit env) me)
     MLet s t mv me ->
-        let subMV mv' = MLet s t mv' (recurse me)
+        let newEnv = if t == TUnit then Map.insert s MUnit env else env
+            subMV mv' = MLet s t mv' (propagateConstsImpl cenv newEnv me)
         in case mv of
             MJust ma ->
                 -- Expression will get removed in dead code elimination

@@ -39,7 +39,7 @@ emitMkCl cl f vs = "MKCL(" ++ show cl ++ ", " ++ show (length vs + 1) ++ ", 0b" 
         elems = ("(uint64_t)cl_" ++ showFuncName f) : [ "(uint64_t)" ++ emitCVal v | (v,_) <- vs]
 
 emitCInstr :: CInstr -> String 
-emitCInstr (CLoad cl cv) = show cl ++ " = " ++ emitCVal cv 
+emitCInstr (CLoad cl cv) = show cl ++ " = " ++ emitCVal cv ++ ";"
 emitCInstr (CBinaryOp bo cl cv cv') = show cl ++ " = " ++ emitCVal cv  ++ " " ++ show bo ++ " " ++ emitCVal cv' ++ ";"
 emitCInstr (CNot cl cv) = show cl ++ " = !" ++ emitCVal cv ++ ";"
 emitCInstr (CDeRef cl cv ct) = show cl ++ " = DEREF(" ++ emitCVal cv ++ ", " ++ emitCType ct ++ ");"
@@ -53,7 +53,7 @@ emitCInstr (CDecRef cl) = "DECREF(" ++ show cl ++ ");"
 
 emitCBlockEnd :: CBlockEnd -> String
 emitCBlockEnd (CGoto s) = "goto " ++ s ++ ";"
-emitCBlockEnd (CBranch cl th el) = "BRANCH(" ++ show cl ++ ", " ++ th ++ ", " ++ el ++ ");"
+emitCBlockEnd (CBranch cl th el) = "BRANCH(" ++ emitCVal cl ++ ", " ++ th ++ ", " ++ el ++ ");"
 emitCBlockEnd (CReturn v) = "return " ++ emitCVal v ++ ";"
 
 emitCBlock :: CBlock -> String

@@ -31,6 +31,10 @@ elimDeadCodeImpl sigs (MIf ma me1 me2) =
     let (me1', vs1) = elimDeadCodeImpl sigs me1
         (me2', vs2) = elimDeadCodeImpl sigs me2
     in (MIf ma me1' me2', matchVar ma ++ vs1 ++ vs2)
+elimDeadCodeImpl sigs (MLetInline s t me nx) =
+    let (nx', vs1) = elimDeadCodeImpl sigs nx
+        (me', vs2) = elimDeadCodeImpl sigs me
+    in (MLetInline s t me' nx', vs1 ++ vs2)
 elimDeadCodeImpl sigs (MLet s t mv me) =
     let (me', vs) = elimDeadCodeImpl sigs me
     in if s `elem` vs || hasSideEffects mv then

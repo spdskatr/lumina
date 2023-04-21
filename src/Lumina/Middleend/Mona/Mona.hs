@@ -12,17 +12,17 @@ import Lumina.Middleend.Typing (LuminaType (..), getReturnType)
 import Lumina.Middleend.Astra.ElimShadowing (elimShadowing)
 
 {-
- - After hoisting all of our functions into a main environment and converting
- - to CPS, our expressions are actually very close to Administrative Normal Form
- - (ANF). Our job is hence to "officially" translate the AST to ANF.
- - 
- - ANF is also known as Monadic Normal Form. From now on I will simply refer to
- - it as "monadic form."
+ - Mona is an IR that represents a functional program in Administrative Normal
+ - Form (ANF), sometimes also called A-normal form and Monadic Normal Form.
+ - The IR consists of let-bindings, if-statements, explicit side-effects
+ - (either through ref assignment or a function call) and no inner functions.
  -
- - Note that apart from if statements, this IR is almost entirely linear.
+ - Types are still kept in this form.
  - 
- - In an ideal world I would have gone directly to this form but I have to demo
- - CPS form first.
+ - It is essentially the functional equivalent of Static Single-Assigmnent
+ - (SSA) form.
+ - 
+ - The bulk of the optimisations are performed in this IR.
  -}
 
 data MonaFunction = MonaFunction
@@ -74,6 +74,7 @@ data MExpr
     = MLet String LuminaType MOper MExpr
     | MAssign MAtom MAtom MExpr
     | MIf MAtom MExpr MExpr
+    | MLetInline String LuminaType MExpr MExpr
     | MReturn MAtom
     deriving Eq
 
@@ -81,6 +82,7 @@ instance Show MExpr where
     show (MLet s t v ex) = "let " ++ s ++ " : " ++ show t ++ " = " ++ show v ++ "\n" ++ show ex
     show (MAssign v1 v2 ex) = "set " ++ show v1 ++ " := " ++ show v2 ++ "\n" ++ show ex
     show (MIf v e1 e2) = "if " ++ show v ++ " then\n" ++ indent (show e1) ++ "else\n" ++ indent (show e2)
+    show (MLetInline s t ex nx) = "let " ++ s ++ " : " ++ show t ++ " =\n" ++ indent (show ex) ++ show nx
     show (MReturn v) = "return " ++ show v
 
 (>:=) :: (MExpr -> Maybe MExpr) -> MExpr -> MExpr
@@ -89,7 +91,8 @@ f >:= m = f m `orElse` recurse
         recurse = case m of
             MLet s t mv me -> MLet s t mv (f >:= me)
             MAssign ma ma' me -> MAssign ma ma' me
-            MIf ma me me' -> MIf ma (f >:= me) (f >:= me')
+            MIf ma me me' -> MIf ma (f >:= me) (f >:= me') 
+            MLetInline s t ex nx -> MLetInline s t (f >:= ex) (f >:= nx)
             MReturn ma -> MReturn ma
 
 monadicFormError :: String -> a
@@ -110,14 +113,10 @@ toMona fs ast k = case ast of
     AApp a1 a2 t -> toMona fs a1 (\a1' -> toMona fs a2 (\a2' -> newLet (MApp a1' a2') t))
     AUnaryOp uo a t -> toMona fs a $ \a' ->
         newLet (MUnary uo a') t
-    ABinaryOp OpAnd a1 a2 _ -> toMona fs a1 $ \a1' -> do
-        m2 <- toMona fs a2 k
-        m3 <- k (MBool False)
-        return $ MIf a1' m2 m3
-    ABinaryOp OpOr a1 a2 _ -> toMona fs a1 $ \a1' -> do
-        m2 <- toMona fs a2 k
-        m1 <- k (MBool True)
-        return $ MIf a1' m1 m2
+    ABinaryOp OpAnd a1 a2 t -> toMona fs a1 $ \a1' -> do
+        newLetIf t a1' a2 (ABool False)
+    ABinaryOp OpOr a1 a2 t -> toMona fs a1 $ \a1' -> do
+        newLetIf t a1' (ABool True) a2
     ABinaryOp bo a1 a2 _ -> toMona fs a1 $ \a1' -> toMona fs a2 $ \a2' ->
         let tres = case bo of
               OpAdd -> TInt
@@ -128,19 +127,21 @@ toMona fs ast k = case ast of
               OpBoolEqual -> TBool
         in newLet (MBinary bo a1' a2') tres
     AAssign a1 a2 -> toMona fs a1 $ \a1' -> toMona fs a2 $ \a2' -> MAssign a1' a2' <$> k MUnit
-    -- TODO: The continuation is duplicated for the If statement, which is fine
-    -- for now since our PAST -> Astra translator actually already isolates if
-    -- statements into their own lambdas
-    -- but if we implement first-class if statements then we should change this
-    AIf c a1 a2 _ -> toMona fs c $ \c' -> do
-        m1 <- toMona fs a1 k
-        m2 <- toMona fs a2 k
-        return $ MIf c' m1 m2
+    AIf c a1 a2 t -> toMona fs c $ \c' -> do
+        newLetIf t c' a1 a2
     ALet s t a1 a2 _ -> toMona fs a1 $ \a1' -> MLet s t (MJust a1') <$> toMona fs a2 k
     ASeq a1 a2 _ -> toMona fs a1 $ \_ -> toMona fs a2 k
     AFun {} -> monadicFormError $ "Encountered lambda when trying to convert to Mona (this should never happen): " ++ show ast
     ALetFun {} -> monadicFormError $ "Encountered inner function definition when trying to convert to Mona (this should never happen): " ++ show ast
     where
+        newLetIf t cond th el = do
+            i <- get
+            put (i+1)
+            let ident = show i ++ "phi"
+            nx <- k (MVar ident)
+            m1 <- toMona fs th (return . MReturn)
+            m2 <- toMona fs el (return . MReturn)
+            return $ MLetInline ident t (MIf cond m1 m2) nx
         newLet v t = do
             i <- get
             put (i+1)

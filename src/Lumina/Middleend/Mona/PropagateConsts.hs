@@ -28,10 +28,13 @@ propagateConstsImpl cenv env ex = case ex of
             MBinary bo ma ma' ->
                 subMV (MBinary bo (process ma) (process ma'))
             MApp ma ma' -> case processCall $ process ma of
+                -- Convert immediately invoked closure application into direct calls
                 Right (c,vs) -> subMV (MCall c vs (process ma'))
                 Left cl -> subMV (MApp cl (process ma'))
             MCall f vs ma ->
                 subMV (MCall f [(x, process a) | (x, a) <- vs] (process ma))
+    MLetInline s t mv me ->
+        MLetInline s t (recurse mv) (recurse me)
     MIf ma me me' ->
         MIf (process ma) (recurse me) (recurse me')
     MReturn ma -> MReturn (process ma)

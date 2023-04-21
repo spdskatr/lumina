@@ -50,6 +50,9 @@ interpretMona cenv env (MIf a th el) = do
         VBool True -> interpretMona cenv env th
         VBool False -> interpretMona cenv env el
         _ -> internalError $ "If statement wants boolean as condition, found " ++ show v ++ " instead"
+interpretMona cenv env (MLetInline x _ ex rest) = do
+    v <- interpretMona cenv env ex
+    interpretMona cenv (Map.insert x v env) rest
 
 makeEnv :: MonaTranslationUnit -> ClosureEnv
 makeEnv fs = Map.map (\(MonaFunction _ fv x _ _ e) args v -> 

@@ -385,7 +385,7 @@ translate env past = case past of
         (a1,t1) <- translate env pa
         let innerCaseEnv = Map.insert "0case" t1 env
         (a2,t2) <- makeCases ("0case",t1) innerCaseEnv l
-        return (AApp (AFun "0case" t1 a2 (TFun t1 t2)) a1 t2, t2)
+        return (ALet "0case" t1 a1 a2 t2, t2)
     PCaseList _ -> internalError "Found lonely CaseList"
     _ -> internalError $ "Bad PAST: " ++ show past
 

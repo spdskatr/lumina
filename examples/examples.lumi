@@ -136,3 +136,10 @@ with a : int# = #0 do
         a := !a + 1
     end;!a
 end
+
+(* Billion laughs attack on Mona IR *)
+with fun f (x : int) : int = 
+    (with x case | 0 -> 3 | _ -> x end) + (with x case | 0 -> 3 | _ -> x end) + (with x case | 0 -> 3 | _ -> x end) + (with x case | 0 -> 3 | _ -> x end) + (with x case | 0 -> 3 | _ -> x end) + (with x case | 0 -> 3 | _ -> x end)
+do
+    f 0
+end

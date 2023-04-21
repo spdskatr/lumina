@@ -61,7 +61,7 @@ data CInstr
 
 data CBlockEnd
     = CGoto String
-    | CBranch CLoc String String
+    | CBranch CVal String String
     | CReturn CVal
 
 data CBlock = CBlock [CInstr] CBlockEnd
@@ -115,8 +115,16 @@ getCVal MUnit = CInt 0
 getCVal (MBool b) = CBool b
 getCVal (MInt i) = CInt i
 
-exprToCelia :: Map String CFunctionDecl -> [CLoc] -> String -> MExpr -> CeliaBuilder CBlockEnd
-exprToCelia ds rs name (MLet x t o rest) = do
+----------------------------------------------------------
+-- Arguments (in case I get confused in the future):
+-- 
+-- ds: Map of function declarations in translation unit
+-- rs: List of all assigned pointer values so far, for reference counting
+-- name: Name of current block
+-- ret: phi-node to assign to, block to continue to, if applicable
+-- expr: The expression to translate
+exprToCelia :: Map String CFunctionDecl -> [CLoc] -> String -> Maybe (CLoc, String) -> MExpr -> CeliaBuilder CBlockEnd
+exprToCelia ds rs name ret (MLet x t o rest) = do
     let varType = getCType t
     newLocal (CLoc x) varType
     let instr = case o of
@@ -138,31 +146,42 @@ exprToCelia ds rs name (MLet x t o rest) = do
             MJust a -> CLoad (CLoc x) (getCVal a)
     let newRs = if varType == CTPtr then CLoc x : rs else rs
     emitCInstr instr
-    exprToCelia ds newRs name rest
+    exprToCelia ds newRs name ret rest
     where
         getRelevantArgs vs args = [getCVal v | (s,v) <- vs, CLoc s `elem` map fst args]
-exprToCelia ds rs name (MAssign a b rest) = do
+exprToCelia ds rs name ret (MAssign a b rest) = do
     case a of
         MVar a' -> emitCInstr $ CSet (CLoc a') (getCVal b)
         _ -> celiaError ("Found an assignment expression to an item that isn't a variable; found " ++ show a)
-    exprToCelia ds rs name rest
-exprToCelia ds rs name (MIf a th el) = do
+    exprToCelia ds rs name ret rest
+exprToCelia ds rs name ret (MIf a th el) = do
     let thenName = name ++ "_a"
     let elseName = name ++ "_b"
-    thenBlock <- buildBlock $ exprToCelia ds rs thenName th
-    elseBlock <- buildBlock $ exprToCelia ds rs elseName el
+    thenBlock <- buildBlock $ exprToCelia ds rs thenName ret th
+    elseBlock <- buildBlock $ exprToCelia ds rs elseName ret el
     newBlock thenName thenBlock
     newBlock elseName elseBlock
-    case a of
-        MVar x ->
-            return $ CBranch (CLoc x) thenName elseName
-        _ -> celiaError ("Found if-statement on a non-variable " ++ show a ++ ". Did we forget to optimise the code before translating it?")
-exprToCelia _ rs _ (MReturn a) = do
+    return $ CBranch (getCVal a) thenName elseName
+exprToCelia ds rs name ret (MLetInline s t ex rest) = do
+    newLocal (CLoc s) (getCType t)
+    -- Create new basic block to continue after assigning to s
+    let innerName = name ++ "__" ++ s
+    innerBlock <- buildBlock $ exprToCelia ds rs innerName ret rest
+    newBlock innerName innerBlock
+
+    -- Attach code to go to next thing
+    exprToCelia ds [] name (Just (CLoc s, innerName)) ex
+exprToCelia _ rs _ ret (MReturn a) = do
     let passOn = case a of
             MVar x -> [y | y <- rs, CLoc x /= y]
             _ -> rs
     forM_ passOn (emitCInstr . CDecRef)
-    return $ CReturn (getCVal a)
+    case ret of
+        Nothing -> 
+            return $ CReturn (getCVal a)
+        Just (x,j) -> do
+            emitCInstr $ CLoad x (getCVal a)
+            return $ CGoto j
 
 toCDecl :: MonaFunction -> CFunctionDecl
 toCDecl mf = CFunctionDecl (getName mf) (getCType $ getResultType mf) ((CLoc (getArg mf), getCType (getArgType mf)) : [(CLoc x, getCType t) | (TypedVar x t) <- getFV mf])
@@ -172,7 +191,7 @@ toCFunction ds mf =
     let (MonaFunction name _ _ _ _ b) = mf
         decl = ds Map.! name
         entryname = "l_" ++ name ++ "_entry"
-        (CeliaBuilder ls bs _ bl) = buildBlock $ exprToCelia ds [] entryname b
+        (CeliaBuilder ls bs _ bl) = buildBlock $ exprToCelia ds [] entryname Nothing b
         allBlocks = Map.insert entryname bl bs
     in CFunction decl ls allBlocks
 

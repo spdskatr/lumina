@@ -1,9 +1,8 @@
-module Lumina.Middleend.Shortcuts (optMonaProgram, astraToCelia) where
+module Lumina.Middleend.Shortcuts (optMonaProgram, optMonaProgramImpl, astraToCelia) where
 
 import Lumina.Middleend.Mona.Mona (MonaFunction (MonaFunction, getFV), MonaTranslationUnit, astraToMona)
 import Lumina.Utils (untilFixedPoint)
 import Lumina.Middleend.Mona.PropagateConsts (propagateConsts)
-import Lumina.Middleend.Mona.OptimiseArith (optimiseArith)
 
 import qualified Data.Map.Strict as Map
 import Lumina.Middleend.Mona.ElimDeadCode (elimDeadCode)
@@ -19,7 +18,7 @@ optMonaProgramImpl mtu = Map.map optMona mtu
     where
         sigs = Map.map getFV mtu
         toBody f (MonaFunction name fv x t t' e) = MonaFunction name fv x t t' (f e)
-        optMona = toBody collapseInlines . elimDeadCode sigs . toBody optimiseArith . toBody propagateConsts
+        optMona = toBody collapseInlines . elimDeadCode sigs . toBody propagateConsts
 
 astraToCelia :: AST -> CeliaTranslationUnit
 astraToCelia = monaToCelia . optMonaProgram . astraToMona

@@ -9,7 +9,7 @@ import Lumina.Utils (hasDuplicates)
 import Lumina.Frontend.Parser (preprocessLumina)
 import Lumina.Frontend.Shortcuts (getAST, loadParserFrom)
 import Lumina.Interpreter.AstraInterpreter (eval)
-import Lumina.Middleend.Shortcuts (optMonaProgram)
+import Lumina.Middleend.Shortcuts (optMonaProgram, optMonaProgramImpl)
 import Lumina.Middleend.Astra.HoistFunctions (globaliseFunctions)
 import Lumina.Middleend.Mona.Mona (astraToMona)
 
@@ -80,8 +80,18 @@ demoOptMona = do
     putStrLn "Enter Lumina code and I'll output the optimised Mona IR. Press CTRL-D when you're done."
     inp <- getContents
     let a = fst $ getAST pars inp
-    let env = optMonaProgram (astraToMona a)
+    env <- optLoop 0 (astraToMona a)
     forM_ (Map.toList env) (putStrLn . show . snd)
+    where
+        optLoop i mtu = do
+            let res = optMonaProgramImpl mtu
+            if res == mtu then do
+                putStrLn ("Optimised (" ++ show i ++ " passes)")
+                return res
+            else do
+                print res
+                putStrLn ""
+                optLoop (i+1) res
 
 demoMonaInterpreter :: IO ()
 demoMonaInterpreter = do
@@ -122,7 +132,6 @@ demoCRuntime = do
             putStrLn ("$ " ++ cmd)
             ex <- system cmd
             when (ex /= ExitSuccess) $ fail ("Failed! Exit code: " ++ show ex)
-
 
 
 main :: IO ()

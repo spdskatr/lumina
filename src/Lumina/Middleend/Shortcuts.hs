@@ -9,6 +9,7 @@ import qualified Data.Map.Strict as Map
 import Lumina.Middleend.Mona.ElimDeadCode (elimDeadCode)
 import Lumina.Middleend.Celia.Celia (CeliaTranslationUnit, monaToCelia)
 import Lumina.Middleend.Astra.Astra (AST)
+import Lumina.Middleend.Mona.CollapseInlines (collapseInlines)
 
 optMonaProgram :: MonaTranslationUnit -> MonaTranslationUnit
 optMonaProgram = untilFixedPoint optMonaProgramImpl
@@ -18,7 +19,7 @@ optMonaProgramImpl mtu = Map.map optMona mtu
     where
         sigs = Map.map getFV mtu
         toBody f (MonaFunction name fv x t t' e) = MonaFunction name fv x t t' (f e)
-        optMona = elimDeadCode sigs . toBody optimiseArith . toBody propagateConsts
+        optMona = toBody collapseInlines . elimDeadCode sigs . toBody optimiseArith . toBody propagateConsts
 
 astraToCelia :: AST -> CeliaTranslationUnit
 astraToCelia = monaToCelia . optMonaProgram . astraToMona

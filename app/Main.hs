@@ -80,7 +80,7 @@ demoOptMona = do
     putStrLn "Enter Lumina code and I'll output the optimised Mona IR. Press CTRL-D when you're done."
     inp <- getContents
     let a = fst $ getAST pars inp
-    env <- optLoop 0 (astraToMona a)
+    env <- optLoop (0 :: Int) (astraToMona a)
     forM_ (Map.toList env) (putStrLn . show . snd)
     where
         optLoop i mtu = do
@@ -89,8 +89,6 @@ demoOptMona = do
                 putStrLn ("Optimised (" ++ show i ++ " passes)")
                 return res
             else do
-                print res
-                putStrLn ""
                 optLoop (i+1) res
 
 demoMonaInterpreter :: IO ()

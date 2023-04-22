@@ -24,12 +24,17 @@ int refcount = 0;
 
 void init_closure(Ref *r);
 
-Ref *mk_closure(uint64_t len, uint64_t tag, uint64_t *data) {
+Ref *alloc_closure(uint64_t len, uint64_t tag) {
     Ref *r = REFALLOC(len);
     gclog("Created closure %p\n", r);
     REFCOUNT(r) = 1;
     REFLENGTH(r) = len;
     REFTAG(r) = tag;
+    return r;
+}
+
+Ref *mk_closure(uint64_t len, uint64_t tag, uint64_t *data) {
+    Ref *r = alloc_closure(len, tag);
     memcpy(REFDATA(r), data, len * sizeof(uint64_t));
     // Initialise reference counts
     init_closure(r);

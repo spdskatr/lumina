@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Lumina.Backend.CeliaToC
+      Lumina.Backend.CeliaToX86
       Lumina.Frontend.Lexer
       Lumina.Frontend.LuminaGrammar
       Lumina.Frontend.Parser

@@ -57,7 +57,7 @@ data MOper
     = MJust MAtom
     | MMkClosure String [(String, MAtom)]
     | MUnary UnaryOp MAtom
-    | MBinary BinaryOp MAtom MAtom
+    | MBinary BinaryOp MAtom MAtom -- By this point the BinaryOp in MBinary should not include logical AND/OR.
     | MApp MAtom MAtom
     | MCall String [(String, MAtom)] MAtom
     deriving Eq

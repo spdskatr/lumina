@@ -29,6 +29,7 @@ typedef uint64_t Ref;
 #define DECREF(v) dec_ref(v)
 
 Ref *mk_closure(uint64_t len, uint64_t tag, uint64_t *data);
+Ref *alloc_closure(uint64_t len, uint64_t tag);
 Ref *mk_ref(int is_ref, uint64_t value);
 uint64_t deref(Ref *v);
 void set_ref(Ref *r, uint64_t new_v);

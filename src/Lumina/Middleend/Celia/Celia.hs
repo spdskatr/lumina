@@ -58,7 +58,6 @@ data CInstr
     | CIncRef CLoc
     | CDecRef CLoc
 
-
 data CBlockEnd
     = CGoto String
     | CBranch CVal String String
@@ -144,6 +143,7 @@ exprToCelia ds rs name ret (MLet x t o rest) = do
                 Just (CFunctionDecl _ _ args) -> CMkCl (CLoc x) f (zip (getRelevantArgs as args) (map snd (tail args)))
                 Nothing -> celiaError ("Could not find function " ++ f)
             MJust a -> CLoad (CLoc x) (getCVal a)
+    -- TODO: The reference counting isn't guaranteed to be correct if the Mona isn't optimised to propagate constants
     let newRs = if varType == CTPtr then CLoc x : rs else rs
     emitCInstr instr
     exprToCelia ds newRs name ret rest

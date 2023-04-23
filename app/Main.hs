@@ -21,6 +21,7 @@ import System.Process.Extra (system)
 import System.Exit (ExitCode(..))
 import Lumina.Backend.CeliaToC (celiaToC)
 import Lumina.Middleend.Typing (LuminaType(TInt))
+import Lumina.Backend.CeliaToX86 (celiaToASM, showASM)
 
 -- WARNING - this may take several minutes to run
 genAndPrintLR1Parser :: IO ()
@@ -131,6 +132,19 @@ demoCRuntime = do
             ex <- system cmd
             when (ex /= ExitSuccess) $ fail ("Failed! Exit code: " ++ show ex)
 
+demoAsm :: IO ()
+demoAsm = do
+    pars <- loadParserFrom "data/lr1.txt"
+    putStrLn "Enter Lumina code and I'll convert it to Celia, then C, then compile with the Celia runtime. Press CTRL-D when you're done."
+    inp <- getContents
+    let (a,t) = getAST pars inp
+    when (t /= TInt) $ fail ("Resultant type of expression is not an integer; found " ++ show t ++ " instead. Only integers are supported.")
+    let mtu = optMonaProgram (astraToMona a)
+    let ctu = monaToCelia mtu
+    let atu = celiaToASM ctu
+    let code = showASM atu
+    writeFile "runtime/program.s" code
+    putStrLn "Written code to runtime/program.s"
 
 main :: IO ()
 main = do
@@ -144,7 +158,8 @@ main = do
     \ 7 - Demo Mona optimiser\n\
     \ 8 - Demo Mona interpreter\n\
     \ 9 - Demo Celia (Middleend IR - C--)\n\
-    \ 10 - Compile to C and run"
+    \ 10 - Compile to C and run\n\
+    \ 11 - Compile to x86 Assembly (WIP)"
     i <- readLn :: IO Int
     case i of
         1 -> genAndPrintLR1Parser
@@ -157,4 +172,5 @@ main = do
         8 -> demoMonaInterpreter
         9 -> demoCelia
         10 -> demoCRuntime
+        11 -> demoAsm
         _ -> error $ "Unrecognised option " ++ show i

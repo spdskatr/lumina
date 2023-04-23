@@ -1,4 +1,4 @@
-module Lumina.Backend.CeliaToC (celiaToC) where
+module Lumina.Backend.CeliaToC (celiaToC, getFlags) where
 
 import Lumina.Middleend.Celia.Celia (CeliaTranslationUnit, CFunction (..), CVal (..), CType (..), CInstr (..), CBlockEnd (..), CFunctionDecl (..), CBlock (..), CLoc)
 import qualified Data.Map.Strict as Map
@@ -32,10 +32,13 @@ getAllocTag CTBool = '0'
 getAllocTag CTInt = '0'
 getAllocTag CTPtr = '1'
 
+getFlags :: [(CVal, CType)] -> String
+getFlags vs = reverse $ '0' : [getAllocTag t | (_,t) <- vs]
+
 emitMkCl :: CLoc -> String -> [(CVal, CType)] -> String
-emitMkCl cl f vs = "MKCL(" ++ show cl ++ ", " ++ show (length vs + 1) ++ ", 0b" ++ reverse flags ++ ", " ++ intercalate ", " elems ++ ");"
+emitMkCl cl f vs = "MKCL(" ++ show cl ++ ", " ++ show (length flags) ++ ", 0b" ++ flags ++ ", " ++ intercalate ", " elems ++ ");"
     where
-        flags = '0' : [ getAllocTag t |(_,t) <- vs ]
+        flags = getFlags vs
         elems = ("(uint64_t)cl_" ++ showFuncName f) : [ "(uint64_t)" ++ emitCVal v | (v,_) <- vs]
 
 emitCInstr :: CInstr -> String 

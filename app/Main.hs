@@ -124,7 +124,7 @@ demoCRuntime = do
     let code = celiaToC ctu
     writeFile "runtime/program.c" code
     putStrLn "Written code to runtime/program.c"
-    verboseSystem "clang -I runtime runtime/program.c runtime/main.c runtime/runtime.c -D_LUMINA_GC -O2 -o runtime/program"
+    verboseSystem "clang -I runtime runtime/program.c runtime/main.c runtime/runtime.c -O2 -o runtime/program"
     verboseSystem "./runtime/program"
     where
         verboseSystem cmd = do
@@ -135,7 +135,7 @@ demoCRuntime = do
 demoAsm :: IO ()
 demoAsm = do
     pars <- loadParserFrom "data/lr1.txt"
-    putStrLn "Enter Lumina code and I'll convert it to Celia, then C, then compile with the Celia runtime. Press CTRL-D when you're done."
+    putStrLn "Enter Lumina code and I'll convert it to x86 assembly, then compile with the Celia runtime. Press CTRL-D when you're done."
     inp <- getContents
     let (a,t) = getAST pars inp
     when (t /= TInt) $ fail ("Resultant type of expression is not an integer; found " ++ show t ++ " instead. Only integers are supported.")
@@ -145,6 +145,13 @@ demoAsm = do
     let code = showASM atu
     writeFile "runtime/program.s" code
     putStrLn "Written code to runtime/program.s"
+    verboseSystem "clang -I runtime runtime/program.s runtime/main.c runtime/runtime.c -o runtime/program"
+    verboseSystem "./runtime/program"
+    where
+        verboseSystem cmd = do
+            putStrLn ("$ " ++ cmd)
+            ex <- system cmd
+            when (ex /= ExitSuccess) $ fail ("Failed! Exit code: " ++ show ex)
 
 main :: IO ()
 main = do
@@ -159,7 +166,7 @@ main = do
     \ 8 - Demo Mona interpreter\n\
     \ 9 - Demo Celia (Middleend IR - C--)\n\
     \ 10 - Compile to C and run\n\
-    \ 11 - Compile to x86 Assembly (WIP)"
+    \ 11 - Compile to x86 Assembly (NOTE: MkClosure not working yet)"
     i <- readLn :: IO Int
     case i of
         1 -> genAndPrintLR1Parser

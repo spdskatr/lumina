@@ -19,7 +19,7 @@ import Lumina.Backend.CeliaToC (getFlags)
 data Reg
     = RAX | RBX | RCX | RDX | RSP | RBP | RDI | RSI | R8 | R9 | R10 | R11
 
-data ArithOp = Add | Sub | Mul | Xor
+data ArithOp = Add | Sub | Xor
 data CompareOp = Equal | Less
 
 type ASMTranslationUnit = Map String [Instr]
@@ -33,8 +33,9 @@ data Instr
     | StoreImm Reg Int Int
     | Store Reg Int Reg
     | Call String
-    | CallFP Reg Int
+    | CallFP Reg
     | Arith ArithOp Reg Reg
+    | Mul Reg
     | ArithImm ArithOp Reg Int
     | Cmp Reg Reg
     | CmpZero Reg
@@ -70,14 +71,13 @@ showAddr ra 0 = "(" ++ show ra ++ ")"
 showAddr ra o = show o ++ "(" ++ show ra ++ ")"
 
 showInstr :: String -> [String] -> String
-showInstr opcode []       = "  " ++ opcode
-showInstr opcode operands = "  " ++ opcode ++ " " ++ intercalate ", " operands
+showInstr opcode []       = "    " ++ opcode
+showInstr opcode operands = "    " ++ opcode ++ " " ++ intercalate ", " operands
 
 showAO :: ArithOp -> String
-showAO Add = "add"
-showAO Sub = "sub"
-showAO Mul = "mul"
-showAO Xor = "xor"
+showAO Add = "addq"
+showAO Sub = "subq"
+showAO Xor = "xorq"
 
 toATT :: Instr -> String
 toATT (Mov rd rs) = showInstr "movq" [show rs, show rd]
@@ -87,16 +87,17 @@ toATT (LEA rd l) = showInstr "leaq" [l, show rd]
 toATT (StoreImm ra o i) = showInstr "movq" [showImm i, showAddr ra o]
 toATT (Store ra o rs) = showInstr "movq" [show rs, showAddr ra o]
 toATT (Call l) = showInstr "call" [l]
-toATT (CallFP ra o) = showInstr "call" [showAddr ra o]
+toATT (CallFP ra) = showInstr "callq" ["*" ++ show ra]
 toATT (Arith ao rd rs) = showInstr (showAO ao) [show rs, show rd]
+toATT (Mul rs) = showInstr "mulq" [show rs]
 toATT (ArithImm ao rd i) = showInstr (showAO ao) [showImm i, show rd]
-toATT (Cmp ra rb) = showInstr "cmp" [show ra, show rb]
-toATT (CmpZero ra) = showInstr "cmp" [show ra, showImm 0]
+toATT (Cmp ra rb) = showInstr "cmpq" [show rb, show ra]
+toATT (CmpZero ra) = showInstr "cmpq" [showImm 0, show ra]
 toATT (SetAL Equal) = showInstr "sete" ["%al"]
-toATT (SetAL Less) = showInstr "sete" ["%al"]
+toATT (SetAL Less) = showInstr "setl" ["%al"]
 toATT MovZXRAXAL = showInstr "movzbq" ["%al", "%rax"]
 toATT (Jmp l) = showInstr "jmp" [l]
-toATT (JE l) = showInstr "le" [l]
+toATT (JE l) = showInstr "je" [l]
 toATT (Label l) = l ++ ":"
 toATT (Push rs) = showInstr "pushq" [show rs]
 toATT (Pop rd) = showInstr "popq" [show rd]
@@ -138,7 +139,7 @@ emitArithOp OpAdd = do
 emitArithOp OpSub = do
     emit $ Arith Sub RAX RBX
 emitArithOp OpMul = do
-    emit $ Arith Mul RAX RBX
+    emit $ Mul RBX
 emitArithOp OpLessThan = do
     emit $ Cmp RAX RBX
     emit $ SetAL Less
@@ -200,13 +201,15 @@ emitCInstr instr = case instr of
         emit $ Call ("f_" ++ f)
         storeToLoc dst RAX
     CCallCl _ dst cl cv -> do
-        loadTo RDI (CVar cl)
+        loadTo RAX (CVar cl)
         -- Load closure data (position 4 onwards) to RDI
+        emit $ Mov RDI RAX
         emit $ ArithImm Add RDI (8*4)
         -- Load argument to RSI
         loadTo RSI cv
         -- Call function pointer (position 3)
-        emit $ CallFP RDI (-8)
+        emit $ ArithImm Sub RAX 8
+        emit $ CallFP RAX
         storeToLoc dst RAX
     CMkCl dst f tvs -> do
         -- Call alloc_closure, then move each element onto the data
@@ -265,7 +268,7 @@ emitFunction (CFunction decl locals blocks) = do
     when (frameSize > 0) (emit $ ArithImm Sub RSP frameSize)
 
     -- Body
-    withRWS (\_ _ -> (Map.fromList (argMap ++ localMap), ())) $ 
+    withRWS (\_ _ -> (Map.fromList (argMap ++ localMap), ())) $
         forM_ (Map.toList blocks) $ \(bn, CBlock is be) -> do
             emit $ Label bn
             forM_ is emitCInstr
@@ -279,8 +282,8 @@ emitFunction (CFunction decl locals blocks) = do
         emit Leave
     emit Ret
     where
-        makeLocalLoc (i,loc) = (fst loc, 8 * (1+i))
-        makeArgLoc (i,arg) = (fst arg, 8 * (-2-i))
+        makeLocalLoc (i,loc) = (fst loc, 8 * (-1-i))
+        makeArgLoc (i,arg) = (fst arg, 8 * (2+i))
 
 celiaToASM :: CeliaTranslationUnit -> ASMTranslationUnit
 celiaToASM = Map.map (getRes . emitFunction)
@@ -288,7 +291,7 @@ celiaToASM = Map.map (getRes . emitFunction)
         getRes builder = let (_,_,res) = runRWS builder Map.empty () in res
 
 showASM :: ASMTranslationUnit -> String
-showASM atu = Map.foldMapWithKey getHeadText atu ++ Map.foldMapWithKey getBodyText atu
+showASM atu = Map.foldMapWithKey getHeadText atu ++ "\n\n" ++ Map.foldMapWithKey getBodyText atu
     where
-        getBodyText _ is = intercalate "\n" $ toATT <$> is
+        getBodyText _ is = intercalate "\n" (toATT <$> is) ++ "\n\n"
         getHeadText name _ = ".globl " ++ "f_" ++ name ++ "\n"

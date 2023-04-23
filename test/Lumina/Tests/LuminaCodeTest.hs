@@ -17,6 +17,7 @@ import Control.Monad (forM_, when)
 import Text.Read (readMaybe)
 import System.Process.Extra (system, readProcessWithExitCode)
 import System.Exit (ExitCode(..))
+import Lumina.Backend.CeliaToX86 (celiaToASM, showASM)
 
 type TestCase = (String, String, Int)
 
@@ -117,6 +118,21 @@ testCProgram codename e (name, code, val) = do
             ex <- system cmd
             when (ex /= ExitSuccess) $ fail ("Failed! Exit code: " ++ show ex)
 
+testASMProgram :: String -> (String -> AST) -> TestCase -> IO ()
+testASMProgram codename e (name, code, val) = do
+    let asmcode = showASM $ celiaToASM $ astraToCelia $ e code
+    writeFile "runtime/program.s" asmcode
+    putStrLn ("Running test " ++ codename ++ "_" ++ name)
+    ensureSystem "clang -I runtime runtime/program.s runtime/main.c runtime/runtime.c -fsanitize=undefined -D_LUMINA_TRACKREF -o runtime/program"
+    (ex, res, cerr) <- readProcessWithExitCode "./runtime/program" [] ""
+    putStr cerr
+    when (ex /= ExitSuccess) $ fail ("Execution failed! Exit code: " ++ show ex)
+    when (readMaybe res /= Just val) $ fail ("test " ++ codename ++ "_" ++ name ++ " failed; Expected " ++ show val ++ ", got " ++ res)
+    where
+        ensureSystem cmd = do
+            ex <- system cmd
+            when (ex /= ExitSuccess) $ fail ("Failed! Exit code: " ++ show ex)
+
 testWithEvaluator :: String -> (String -> Value) -> Either String ()
 testWithEvaluator codename e =
     forM_ testCases (regressionTest codename e)
@@ -135,4 +151,5 @@ runCodeTest = do
         Left err -> error err
         Right _ -> return ()
     forM_ testCases $ testCProgram "celiaToCBackend" (fst . getAST lr)
+    forM_ testCases $ testASMProgram "celiaToASMBackend" (fst . getAST lr)
     putStrLn "Lumina.Tests.LuminaCodeTest PASS"

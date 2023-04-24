@@ -83,7 +83,7 @@ toATT :: Instr -> String
 toATT (Mov rd rs) = showInstr "movq" [show rs, show rd]
 toATT (LoadImm rd i) = showInstr "movq" [showImm i, show rd]
 toATT (Load rd ra o) = showInstr "movq" [showAddr ra o, show rd]
-toATT (LEA rd l) = showInstr "leaq" [l, show rd]
+toATT (LEA rd l) = showInstr "leaq" [l ++ "(%rip)", show rd]
 toATT (StoreImm ra o i) = showInstr "movq" [showImm i, showAddr ra o]
 toATT (Store ra o rs) = showInstr "movq" [show rs, showAddr ra o]
 toATT (Call l) = showInstr "call" [l]
@@ -163,8 +163,8 @@ toBinary :: String -> Int
 toBinary = toBinaryRev . reverse
     where
         toBinaryRev [] = 0
-        toBinaryRev ('0':xs) = toBinary xs
-        toBinaryRev ('1':xs) = 2 + toBinary xs + 1
+        toBinaryRev ('0':xs) = 2 * toBinaryRev xs
+        toBinaryRev ('1':xs) = 2 * toBinaryRev xs + 1
         toBinaryRev (x:_) = internalError ("Not a binary digit: " ++ show x)
 
 emitCInstr :: CInstr -> AsmBuilder ()
@@ -195,10 +195,14 @@ emitCInstr instr = case instr of
         storeToLoc dst RAX
     CCall dst f cvs cv -> do
         let args = reverse $ cv : cvs
-        forM_ args $ \arg -> do
-            loadTo RAX arg
-            emit $ Push RAX
+            argsSize = 8 * length args
+        emit $ Mov RAX RSP
+        emit $ ArithImm Sub RSP argsSize
+        forM_ (countUp args) $ \(i, arg) -> do
+            loadTo R10 arg
+            emit $ Store RAX (8 * (-1-i)) R10
         emit $ Call ("f_" ++ f)
+        emit $ ArithImm Add RSP argsSize
         storeToLoc dst RAX
     CCallCl _ dst cl cv -> do
         loadTo RAX (CVar cl)
@@ -208,7 +212,7 @@ emitCInstr instr = case instr of
         -- Load argument to RSI
         loadTo RSI cv
         -- Call function pointer (position 3)
-        emit $ ArithImm Sub RAX 8
+        emit $ Load RAX RAX (8*3)
         emit $ CallFP RAX
         storeToLoc dst RAX
     CMkCl dst f tvs -> do
@@ -276,17 +280,38 @@ emitFunction (CFunction decl locals blocks) = do
 
     -- Epilogue
     emit $ Label epi
-    if frameSize == 0 then
-        emit $ Pop RBP
-    else
-        emit Leave
+    when (frameSize > 0) (emit $ ArithImm Add RSP frameSize)
+    emit $ Pop RBP
     emit Ret
     where
         makeLocalLoc (i,loc) = (fst loc, 8 * (-1-i))
         makeArgLoc (i,arg) = (fst arg, 8 * (2+i))
 
+emitClosuredFunction :: CFunctionDecl -> AsmBuilder ()
+emitClosuredFunction (CFunctionDecl name _ args) = do
+    let orig = "f_" ++ name
+        pro = "cl_f_" ++ name
+        argsLen = length args
+    emit $ Label pro
+    -- Prologue
+    -- Unlike the other functions, this one receives its arguments in RDI and RSI
+    -- Unpack args to stack
+    emit $ ArithImm Sub RSP (8*argsLen)
+    -- Unpack first argument (rsi)
+    emit $ Store RSP 0 RSI
+    -- Unpack remaining arguments (rdi)
+    forM_ [1..argsLen-1] $ \i -> do
+        emit $ Load R10 RDI (8*(i-1))
+        emit $ Store RSP (8*i) R10
+    -- Call original function
+    emit $ Call orig
+    emit $ ArithImm Add RSP (8*argsLen)
+    emit Ret
+
 celiaToASM :: CeliaTranslationUnit -> ASMTranslationUnit
-celiaToASM = Map.map (getRes . emitFunction)
+celiaToASM = Map.map $ \cf -> getRes $ do 
+        emitFunction cf
+        emitClosuredFunction (getDecl cf)
     where
         getRes builder = let (_,_,res) = runRWS builder Map.empty () in res
 
@@ -294,4 +319,4 @@ showASM :: ASMTranslationUnit -> String
 showASM atu = Map.foldMapWithKey getHeadText atu ++ "\n\n" ++ Map.foldMapWithKey getBodyText atu
     where
         getBodyText _ is = intercalate "\n" (toATT <$> is) ++ "\n\n"
-        getHeadText name _ = ".globl " ++ "f_" ++ name ++ "\n"
+        getHeadText name _ = ".globl " ++ "f_" ++ name ++ "\n" ++ ".globl " ++ "cl_f_" ++ name ++ "\n"

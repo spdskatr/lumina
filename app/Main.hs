@@ -166,7 +166,7 @@ main = do
     \ 8 - Demo Mona interpreter\n\
     \ 9 - Demo Celia (Middleend IR - C--)\n\
     \ 10 - Compile to C and run\n\
-    \ 11 - Compile to x86 Assembly (NOTE: MkClosure not working yet)"
+    \ 11 - Compile to x86 Assembly"
     i <- readLn :: IO Int
     case i of
         1 -> genAndPrintLR1Parser

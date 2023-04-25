@@ -2,9 +2,8 @@
 
 ## Description
 
-Lumina is a functional programming language designed with each keyword having a single unicode character counterpart, so you can produce cool-looking minified code from it.
+Lumina is a functional programming language written for an extremely cursed compiler assignment. It's similar to Standard ML, except the syntax is a bit different. For example, here's how you would calculate Fibonacci numbers:
 
-For example, the following code
 ```
 (* Calculate Fibonacci numbers! *)
 with fun fib (x: int) : int = with x case
@@ -13,11 +12,6 @@ with fun fib (x: int) : int = with x case
     | _ -> fib (x - 1) + fib (x - 2)
 end do fib 5 end
 ```
-when minified, looks like
-```
-α λ f ( x : ◻ ) : ◻ = α x ↦ | 0 → 0 | 1 → 1 | _ → f ( x - 1 ) + f ( x - 2 ) ω β f 5 ω
-```
-the choices for character are quite arbitrary and I haven't fully decided on them yet.
 
 ## Running
 
